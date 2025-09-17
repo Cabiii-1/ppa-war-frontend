@@ -33,7 +33,13 @@ const pagination = ref<PaginatedEntries | null>(null)
 const loading = ref(false)
 const searchQuery = ref('')
 const showAddDialog = ref(false)
+const showEditDialog = ref(false)
+const showConfirmDialog = ref(false)
+const showDeleteConfirmDialog = ref(false)
 const selectedEntryDate = ref<DateValue>(fromDate(new Date(), getLocalTimeZone()))
+const editingEntry = ref<Entry | null>(null)
+const pendingUpdateData = ref<any>(null)
+const pendingDeleteId = ref<number | null>(null)
 const selectedDateRange = ref<DateRange>({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
@@ -44,6 +50,13 @@ const hoveredWeekdays = ref<{ start: Date, end: Date } | null>(null)
 const newEntry = reactive<CreateEntryData>({
   employee_id: '',
   entry_date: format(new Date(), 'yyyy-MM-dd'),
+  ppa: '',
+  kpi: '',
+  status: '',
+  remarks: ''
+})
+
+const editEntry = reactive<Partial<Entry>>({
   ppa: '',
   kpi: '',
   status: '',
@@ -148,17 +161,69 @@ const addEntry = async () => {
   }
 }
 
-const deleteEntry = async (id: number) => {
-  if (confirm('Are you sure you want to delete this entry?')) {
-    try {
-      const response = await entriesService.deleteEntry(id)
-      if (response.success) {
-        await loadEntries()
-      }
-    } catch (error) {
-      console.error('Failed to delete entry:', error)
+const deleteEntry = (id: number) => {
+  pendingDeleteId.value = id
+  showDeleteConfirmDialog.value = true
+}
+
+const confirmDelete = async () => {
+  if (pendingDeleteId.value === null) return
+
+  try {
+    const response = await entriesService.deleteEntry(pendingDeleteId.value)
+    if (response.success) {
+      showDeleteConfirmDialog.value = false
+      pendingDeleteId.value = null
+      await loadEntries()
     }
+  } catch (error) {
+    console.error('Failed to delete entry:', error)
   }
+}
+
+const openEditDialog = (entry: Entry) => {
+  editingEntry.value = entry
+  Object.assign(editEntry, {
+    ppa: entry.ppa,
+    kpi: entry.kpi,
+    status: entry.status,
+    remarks: entry.remarks || ''
+  })
+  showEditDialog.value = true
+}
+
+const updateEntry = async () => {
+  if (!editingEntry.value) return
+
+  pendingUpdateData.value = { ...editEntry }
+  showConfirmDialog.value = true
+}
+
+const confirmUpdate = async () => {
+  if (!editingEntry.value || !pendingUpdateData.value) return
+
+  try {
+    const response = await entriesService.updateEntry(editingEntry.value.id, pendingUpdateData.value)
+    if (response.success) {
+      showConfirmDialog.value = false
+      showEditDialog.value = false
+      resetEditForm()
+      await loadEntries()
+    }
+  } catch (error) {
+    console.error('Failed to update entry:', error)
+  }
+}
+
+const resetEditForm = () => {
+  editingEntry.value = null
+  pendingUpdateData.value = null
+  Object.assign(editEntry, {
+    ppa: '',
+    kpi: '',
+    status: '',
+    remarks: ''
+  })
 }
 
 const resetForm = () => {
@@ -323,6 +388,115 @@ onMounted(() => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <!-- Edit Entry Dialog -->
+      <Dialog v-model:open="showEditDialog">
+        <DialogContent class="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Edit Entry</DialogTitle>
+          </DialogHeader>
+          <form @submit.prevent="updateEntry" class="space-y-4">
+            <div class="space-y-2">
+              <Label>Entry Date (Read-only)</Label>
+              <div class="px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                {{ editingEntry ? formatDate(editingEntry.entry_date) : '' }}
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <Label for="edit_status">Status</Label>
+              <Input
+                id="edit_status"
+                v-model="editEntry.status"
+                placeholder="e.g., Completed, In Progress"
+                required
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="edit_ppa">PPA (Program/Project/Activity)</Label>
+              <Textarea
+                id="edit_ppa"
+                v-model="editEntry.ppa"
+                placeholder="Describe the program, project, or activity"
+                required
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="edit_kpi">KPI (Key Performance Indicator)</Label>
+              <Textarea
+                id="edit_kpi"
+                v-model="editEntry.kpi"
+                placeholder="Describe the key performance indicators"
+                required
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="edit_remarks">Remarks (Optional)</Label>
+              <Textarea
+                id="edit_remarks"
+                v-model="editEntry.remarks"
+                placeholder="Additional notes or comments"
+              />
+            </div>
+
+            <div class="flex justify-end space-x-2">
+              <Button type="button" variant="outline" @click="showEditDialog = false">
+                Cancel
+              </Button>
+              <Button type="submit">
+                Update Entry
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Confirmation Dialog -->
+      <Dialog v-model:open="showConfirmDialog">
+        <DialogContent class="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Update</DialogTitle>
+          </DialogHeader>
+          <div class="py-4">
+            <p class="text-sm text-muted-foreground">
+              Are you sure you want to update this entry? This action cannot be undone.
+            </p>
+          </div>
+          <div class="flex justify-end space-x-2">
+            <Button type="button" variant="outline" @click="showConfirmDialog = false">
+              Cancel
+            </Button>
+            <Button type="button" @click="confirmUpdate">
+              Yes, Update
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Delete Confirmation Dialog -->
+      <Dialog v-model:open="showDeleteConfirmDialog">
+        <DialogContent class="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Delete</DialogTitle>
+          </DialogHeader>
+          <div class="py-4">
+            <p class="text-sm text-muted-foreground">
+              Are you sure you want to delete this entry? This action cannot be undone.
+            </p>
+          </div>
+          <div class="flex justify-end space-x-2">
+            <Button type="button" variant="outline" @click="showDeleteConfirmDialog = false">
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" @click="confirmDelete">
+              Yes, Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
 
     <!-- Filters and Search -->
@@ -442,7 +616,7 @@ onMounted(() => {
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center space-x-1">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" @click="openEditDialog(entry)">
                       <Edit class="h-3 w-3" />
                     </Button>
                     <Button variant="ghost" size="sm" @click="deleteEntry(entry.id)">
