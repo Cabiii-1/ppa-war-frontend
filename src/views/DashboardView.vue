@@ -33,7 +33,8 @@ onMounted(() => {
 const currentPageName = computed(() => {
   const routeNameMap: Record<string, string> = {
     'DashboardOverview': 'Overview',
-    'DailyEntries': 'Daily Entries'
+    'DailyEntries': 'Daily Entries',
+    'WeeklyReports': 'Weekly Reports'
   }
   return routeNameMap[route.name as string] || 'Dashboard'
 })

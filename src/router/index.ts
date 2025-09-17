@@ -36,6 +36,12 @@ const router = createRouter({
           name: 'DailyEntries',
           component: () => import('@/components/dashboard/modules/DailyEntriesModule.vue'),
           meta: { requiresAuth: true }
+        },
+        {
+          path: 'weekly-reports',
+          name: 'WeeklyReports',
+          component: () => import('@/components/dashboard/modules/WeeklyReportsModule.vue'),
+          meta: { requiresAuth: true }
         }
       ]
     }

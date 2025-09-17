@@ -5,6 +5,7 @@ import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate, toCalendarDate
 import type { DateRange, DateValue } from 'reka-ui'
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
+import { weeklyReportsService } from '@/services/weeklyReports'
 import type { Entry, CreateEntryData, EntryFilters, PaginatedEntries } from '@/types/entry'
 import { cn } from '@/lib/utils'
 
@@ -40,6 +41,7 @@ const selectedEntryDate = ref<DateValue>(fromDate(new Date(), getLocalTimeZone()
 const editingEntry = ref<Entry | null>(null)
 const pendingUpdateData = ref<any>(null)
 const pendingDeleteId = ref<number | null>(null)
+const showSaveToWeeklyDialog = ref(false)
 const selectedDateRange = ref<DateRange>({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
@@ -96,6 +98,7 @@ const dateRangeText = computed(() => {
   return 'Select weekdays'
 })
 
+
 // Helper function to check if selection is weekdays only (Mon-Fri)
 const isWeekdaysSelection = (start: Date, end: Date) => {
   const weekStart = startOfWeek(start, { weekStartsOn: 1 }) // Monday
@@ -114,6 +117,18 @@ const getWeekdayRange = (date: Date) => {
 
   return { start: weekStart, end: weekdayEnd }
 }
+
+// Initialize selectedDateRange with current weekdays
+const getCurrentWeekdayRange = () => {
+  const { start: weekdayStart, end: weekdayEnd } = getWeekdayRange(new Date())
+  return {
+    start: new CalendarDate(weekdayStart.getFullYear(), weekdayStart.getMonth() + 1, weekdayStart.getDate()),
+    end: new CalendarDate(weekdayEnd.getFullYear(), weekdayEnd.getMonth() + 1, weekdayEnd.getDate())
+  }
+}
+
+// Set initial date range to current weekdays
+selectedDateRange.value = getCurrentWeekdayRange()
 
 // Methods
 const loadEntries = async () => {
@@ -287,6 +302,44 @@ const handleCalendarCellClick = (date: Date) => {
   selectWeekdays(date)
 }
 
+const saveToWeeklyReport = () => {
+  if (filteredEntries.value.length === 0) {
+    alert('No entries found in the current date range to save to weekly report.')
+    return
+  }
+  showSaveToWeeklyDialog.value = true
+}
+
+const confirmSaveToWeeklyReport = async () => {
+  try {
+    const entryIds = filteredEntries.value.map(entry => entry.id)
+    const startDate = selectedDateRange.value.start?.toDate(getLocalTimeZone())
+    const endDate = selectedDateRange.value.end?.toDate(getLocalTimeZone())
+
+    if (!startDate || !endDate) {
+      alert('Please select a valid date range.')
+      return
+    }
+
+    const response = await weeklyReportsService.createWeeklyReport({
+      entry_ids: entryIds,
+      period_start: format(startDate, 'yyyy-MM-dd'),
+      period_end: format(endDate, 'yyyy-MM-dd')
+    })
+
+    if (response.success) {
+      alert(`Weekly report created successfully! ${entryIds.length} entries have been added to the report.`)
+      showSaveToWeeklyDialog.value = false
+      await loadEntries() // Reload to show updated entries with weekly_report_id
+    } else {
+      alert('Failed to create weekly report. Please try again.')
+    }
+  } catch (error) {
+    console.error('Failed to save to weekly report:', error)
+    alert('An error occurred while creating the weekly report. Please try again.')
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   loadEntries()
@@ -397,7 +450,7 @@ onMounted(() => {
           </DialogHeader>
           <form @submit.prevent="updateEntry" class="space-y-4">
             <div class="space-y-2">
-              <Label>Entry Date (Read-only)</Label>
+              <Label>Entry Date</Label>
               <div class="px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
                 {{ editingEntry ? formatDate(editingEntry.entry_date) : '' }}
               </div>
@@ -497,6 +550,40 @@ onMounted(() => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <!-- Save to Weekly Report Confirmation Dialog -->
+      <Dialog v-model:open="showSaveToWeeklyDialog">
+        <DialogContent class="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Save to Weekly Report</DialogTitle>
+          </DialogHeader>
+          <div class="py-4 space-y-4">
+            <p class="text-sm text-muted-foreground">
+              This will create a new weekly report for the period <strong>{{ dateRangeText }}</strong>
+              and include all <strong>{{ filteredEntries.length }}</strong> entries currently shown in the table.
+            </p>
+            <div class="bg-muted p-3 rounded-md">
+              <p class="text-sm font-medium mb-2">Entries to be included:</p>
+              <ul class="text-xs space-y-1 max-h-32 overflow-y-auto">
+                <li v-for="entry in filteredEntries.slice(0, 5)" :key="entry.id" class="truncate">
+                  {{ formatDate(entry.entry_date) }} - {{ entry.ppa.substring(0, 50) }}...
+                </li>
+                <li v-if="filteredEntries.length > 5" class="text-muted-foreground italic">
+                  ... and {{ filteredEntries.length - 5 }} more entries
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-2">
+            <Button type="button" variant="outline" @click="showSaveToWeeklyDialog = false">
+              Cancel
+            </Button>
+            <Button type="button" @click="confirmSaveToWeeklyReport" class="bg-green-600 hover:bg-green-700">
+              Create Weekly Report
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
 
     <!-- Filters and Search -->
@@ -566,6 +653,14 @@ onMounted(() => {
       <Button variant="outline">
         <Filter class="h-4 w-4 mr-2" />
         Filter
+      </Button>
+
+      <Button
+        @click="saveToWeeklyReport"
+        :disabled="filteredEntries.length === 0"
+        class="bg-green-600 hover:bg-green-700"
+      >
+        Save to Weekly Report
       </Button>
     </div>
 
