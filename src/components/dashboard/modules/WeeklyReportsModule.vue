@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Search, Eye, Trash2, CheckCircle, Archive } from 'lucide-vue-next'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const authStore = useAuthStore()
 
@@ -142,11 +143,32 @@ onMounted(() => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-if="loading">
-              <TableCell colspan="6" class="text-center py-8">
-                Loading...
-              </TableCell>
-            </TableRow>
+            <template v-if="loading">
+              <TableRow v-for="i in 5" :key="`skeleton-${i}`">
+                <TableCell>
+                  <Skeleton class="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton class="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton class="h-6 w-16 rounded-md" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton class="h-5 w-8 rounded-full" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton class="h-4 w-20" />
+                </TableCell>
+                <TableCell>
+                  <div class="flex items-center space-x-1">
+                    <Skeleton class="h-6 w-6 rounded" />
+                    <Skeleton class="h-6 w-6 rounded" />
+                    <Skeleton class="h-6 w-6 rounded" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            </template>
             <TableRow v-else-if="filteredReports.length === 0">
               <TableCell colspan="6" class="text-center py-8 text-muted-foreground">
                 No weekly reports found
