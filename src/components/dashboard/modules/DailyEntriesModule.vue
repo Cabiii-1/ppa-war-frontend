@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
-import { format, parseISO } from 'date-fns'
-import { CalendarDate, DateFormatter, getLocalTimeZone } from '@internationalized/date'
-import type { DateRange } from 'reka-ui'
+import { format, parseISO, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns'
+import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate, toCalendarDate } from '@internationalized/date'
+import type { DateRange, DateValue } from 'reka-ui'
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
 import type { Entry, CreateEntryData, EntryFilters, PaginatedEntries } from '@/types/entry'
@@ -10,15 +10,15 @@ import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Calendar } from '@/components/ui/calendar'
 import { RangeCalendar } from '@/components/ui/range-calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Search, Filter, Calendar as CalendarIcon, MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
+import { Plus, Search, Filter, Calendar as CalendarIcon, Edit, Trash2 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 
@@ -33,10 +33,12 @@ const pagination = ref<PaginatedEntries | null>(null)
 const loading = ref(false)
 const searchQuery = ref('')
 const showAddDialog = ref(false)
+const selectedEntryDate = ref<DateValue>(fromDate(new Date(), getLocalTimeZone()))
 const selectedDateRange = ref<DateRange>({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
 })
+const hoveredWeekdays = ref<{ start: Date, end: Date } | null>(null)
 
 // Form state
 const newEntry = reactive<CreateEntryData>({
@@ -66,12 +68,39 @@ const filteredEntries = computed(() => {
 const dateRangeText = computed(() => {
   if (selectedDateRange.value.start) {
     if (selectedDateRange.value.end) {
-      return `${df.format(selectedDateRange.value.start.toDate(getLocalTimeZone()))} - ${df.format(selectedDateRange.value.end.toDate(getLocalTimeZone()))}`
+      const startDate = selectedDateRange.value.start.toDate(getLocalTimeZone())
+      const endDate = selectedDateRange.value.end.toDate(getLocalTimeZone())
+
+      // Check if it's a weekdays selection (Mon-Fri)
+      if (isWeekdaysSelection(startDate, endDate)) {
+        return `Weekdays of ${df.format(startDate)}`
+      }
+
+      return `${df.format(startDate)} - ${df.format(endDate)}`
     }
     return df.format(selectedDateRange.value.start.toDate(getLocalTimeZone()))
   }
-  return 'Pick a date range'
+  return 'Select weekdays'
 })
+
+// Helper function to check if selection is weekdays only (Mon-Fri)
+const isWeekdaysSelection = (start: Date, end: Date) => {
+  const weekStart = startOfWeek(start, { weekStartsOn: 1 }) // Monday
+  const weekdayEnd = new Date(weekStart)
+  weekdayEnd.setDate(weekdayEnd.getDate() + 4) // Friday
+
+  return startOfDay(start).getTime() === startOfDay(weekStart).getTime() &&
+         endOfDay(end).getTime() === endOfDay(weekdayEnd).getTime()
+}
+
+// Helper function to get weekday range (Mon-Fri) for a given date
+const getWeekdayRange = (date: Date) => {
+  const weekStart = startOfWeek(date, { weekStartsOn: 1 }) // Monday
+  const weekdayEnd = new Date(weekStart)
+  weekdayEnd.setDate(weekdayEnd.getDate() + 4) // Friday
+
+  return { start: weekStart, end: weekdayEnd }
+}
 
 // Methods
 const loadEntries = async () => {
@@ -105,6 +134,9 @@ const addEntry = async () => {
     // Set employee_id to current user
     newEntry.employee_id = authStore.user?.employee_id || authStore.user?.id?.toString() || ''
 
+    // Convert calendar date to string format for API
+    newEntry.entry_date = format(selectedEntryDate.value.toDate(getLocalTimeZone()), 'yyyy-MM-dd')
+
     const response = await entriesService.createEntry(newEntry)
     if (response.success) {
       showAddDialog.value = false
@@ -130,6 +162,7 @@ const deleteEntry = async (id: number) => {
 }
 
 const resetForm = () => {
+  selectedEntryDate.value = fromDate(new Date(), getLocalTimeZone())
   Object.assign(newEntry, {
     employee_id: '',
     entry_date: format(new Date(), 'yyyy-MM-dd'),
@@ -149,6 +182,44 @@ const handleDateRangeSelect = (range: DateRange) => {
   if (range.start && range.end) {
     loadEntries()
   }
+}
+
+// Weekday selection helpers
+const selectWeekdays = (date: Date) => {
+  const { start: weekdayStart, end: weekdayEnd } = getWeekdayRange(date)
+
+  selectedDateRange.value = {
+    start: new CalendarDate(weekdayStart.getFullYear(), weekdayStart.getMonth() + 1, weekdayStart.getDate()),
+    end: new CalendarDate(weekdayEnd.getFullYear(), weekdayEnd.getMonth() + 1, weekdayEnd.getDate())
+  }
+
+  loadEntries()
+}
+
+// Quick weekday selection presets
+const selectCurrentWeekdays = () => {
+  selectWeekdays(new Date())
+}
+
+const selectLastWeekdays = () => {
+  const lastWeek = new Date()
+  lastWeek.setDate(lastWeek.getDate() - 7)
+  selectWeekdays(lastWeek)
+}
+
+// Handle calendar cell hover for weekday highlighting
+const handleCalendarCellHover = (date: Date | null) => {
+  if (date) {
+    const { start: weekdayStart, end: weekdayEnd } = getWeekdayRange(date)
+    hoveredWeekdays.value = { start: weekdayStart, end: weekdayEnd }
+  } else {
+    hoveredWeekdays.value = null
+  }
+}
+
+// Handle calendar cell click for weekday selection
+const handleCalendarCellClick = (date: Date) => {
+  selectWeekdays(date)
 }
 
 // Lifecycle
@@ -181,12 +252,26 @@ onMounted(() => {
             <div class="grid grid-cols-2 gap-4">
               <div class="space-y-2">
                 <Label for="entry_date">Date</Label>
-                <Input
-                  id="entry_date"
-                  v-model="newEntry.entry_date"
-                  type="date"
-                  required
-                />
+                <Popover>
+                  <PopoverTrigger as-child>
+                    <Button
+                      variant="outline"
+                      :class="cn(
+                        'w-full justify-start text-left font-normal',
+                        !selectedEntryDate && 'text-muted-foreground'
+                      )"
+                    >
+                      <CalendarIcon class="mr-2 h-4 w-4" />
+                      {{ selectedEntryDate ? df.format(selectedEntryDate.toDate(getLocalTimeZone())) : 'Select date' }}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent class="w-auto p-0">
+                    <Calendar
+                      v-model="selectedEntryDate"
+                      initial-focus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div class="space-y-2">
                 <Label for="status">Status</Label>
@@ -266,13 +351,42 @@ onMounted(() => {
           </Button>
         </PopoverTrigger>
         <PopoverContent class="w-auto p-0">
-          <RangeCalendar
-            v-model="selectedDateRange"
-            initial-focus
-            :number-of-months="2"
-            @update:start-value="(startDate) => selectedDateRange && (selectedDateRange.start = startDate)"
-            @update:model-value="handleDateRangeSelect"
-          />
+          <div class="p-3 border-b space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">Quick Selection</span>
+            </div>
+
+            <!-- Quick weekday selection buttons -->
+            <div class="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                @click="selectCurrentWeekdays"
+                class="text-xs"
+              >
+                This Week
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="selectLastWeekdays"
+                class="text-xs"
+              >
+                Last Week
+              </Button>
+            </div>
+          </div>
+          <div class="weekday-calendar">
+            <RangeCalendar
+              v-model="selectedDateRange"
+              initial-focus
+              :number-of-months="2"
+              @update:model-value="handleDateRangeSelect"
+            />
+          </div>
+          <div class="p-3 border-t text-xs text-muted-foreground">
+            💡 Click any day to select weekdays only (Monday-Friday)
+          </div>
         </PopoverContent>
       </Popover>
 
@@ -345,3 +459,38 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Weekday calendar styling */
+.weekday-calendar :deep(.reka-calendar-cell) {
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+/* Weekday hover effect - highlight Monday through Friday */
+.weekday-calendar :deep(.reka-calendar-cell:hover) {
+  background-color: rgba(34, 197, 94, 0.1);
+}
+
+/* Selected weekday range styling */
+.weekday-calendar :deep(.reka-calendar-cell[data-selected="true"]) {
+  background-color: rgba(34, 197, 94, 0.2);
+}
+
+/* Weekday range highlight effect */
+.weekday-calendar :deep(.reka-calendar-cell.weekday-range) {
+  background-color: rgba(34, 197, 94, 0.15);
+  border-radius: 0;
+}
+
+.weekday-calendar :deep(.reka-calendar-cell.weekday-range:first-child) {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.weekday-calendar :deep(.reka-calendar-cell.weekday-range:last-child) {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+</style>

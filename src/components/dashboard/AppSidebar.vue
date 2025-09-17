@@ -56,7 +56,6 @@ const data = computed(() => ({
   <Sidebar v-bind="props">
     <SidebarHeader>
       <div class="p-4">
-        <h2 class="text-lg font-semibold">PGC DAR System</h2>
       </div>
     </SidebarHeader>
     <SidebarContent>
