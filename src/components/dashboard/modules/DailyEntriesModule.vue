@@ -233,7 +233,6 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">Daily Entries</h1>
         <p class="text-muted-foreground">Manage your daily accomplishment reports</p>
       </div>
 

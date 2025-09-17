@@ -15,6 +15,9 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
 
@@ -55,8 +58,23 @@ const data = computed(() => ({
 <template>
   <Sidebar v-bind="props">
     <SidebarHeader>
-      <div class="p-4">
-      </div>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+            <div class="flex aspect-square size-8 items-center justify-center rounded-lg">
+              <img
+                src="/sso_logo.webp"
+                alt="Province of Cagayan Official Seal"
+                class="w-8 h-8"
+              />
+            </div>
+            <div class="grid flex-1 text-left text-sm leading-tight">
+              <span class="truncate font-semibold">PGC</span>
+              <span class="truncate text-xs">Weekly Reports</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
     </SidebarHeader>
     <SidebarContent>
       <NavMain :items="data.navMain" />
