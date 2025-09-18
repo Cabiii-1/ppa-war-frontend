@@ -681,15 +681,16 @@ onMounted(() => {
       <!-- Entries Table -->
       <Card>
         <CardContent class="p-0">
-          <Table>
+          <div class="overflow-x-auto">
+            <Table class="w-full">
             <TableHeader>
               <TableRow>
-                <TableHead class="w-[120px]">Date</TableHead>
-                <TableHead class="w-[30%]">PPA</TableHead>
-                <TableHead class="w-[30%]">KPI</TableHead>
-                <TableHead class="w-[120px]">Status</TableHead>
-                <TableHead class="w-[20%]">Remarks</TableHead>
-                <TableHead class="w-[100px]">Actions</TableHead>
+                <TableHead class="w-24">Date</TableHead>
+                <TableHead class="w-1/3">PPA</TableHead>
+                <TableHead class="w-1/3">KPI</TableHead>
+                <TableHead class="w-20">Status</TableHead>
+                <TableHead class="w-1/6">Remarks</TableHead>
+                <TableHead class="w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -727,19 +728,25 @@ onMounted(() => {
                 <TableCell class="font-medium">
                   {{ formatDate(entry.entry_date) }}
                 </TableCell>
-                <TableCell class="break-words">
-                  {{ entry.ppa }}
+                <TableCell class="max-w-0 text-sm">
+                  <div class="truncate" :title="entry.ppa">
+                    {{ entry.ppa }}
+                  </div>
                 </TableCell>
-                <TableCell class="break-words">
-                  {{ entry.kpi }}
+                <TableCell class="max-w-0 text-sm">
+                  <div class="truncate" :title="entry.kpi">
+                    {{ entry.kpi }}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
                     {{ entry.status }}
                   </span>
                 </TableCell>
-                <TableCell class="break-words">
-                  {{ entry.remarks || '-' }}
+                <TableCell class="max-w-0 text-sm">
+                  <div class="truncate" :title="entry.remarks || ''">
+                    {{ entry.remarks || '-' }}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center space-x-1">
@@ -753,7 +760,8 @@ onMounted(() => {
                 </TableCell>
               </TableRow>
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -30,8 +30,14 @@ const pendingDeleteId = ref<number | null>(null)
 
 // Computed
 const filteredReports = computed(() => {
-  if (!searchQuery.value) return reports.value
-  return reports.value.filter(report =>
+  // First filter by current user's employee_id
+  const userReports = reports.value.filter(report =>
+    report.employee_id === authStore.user?.employee_id
+  )
+
+  // Then apply search filter
+  if (!searchQuery.value) return userReports
+  return userReports.filter(report =>
     report.period_start.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     report.period_end.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     report.status.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -132,15 +138,16 @@ onMounted(() => {
     <!-- Reports Table -->
     <Card>
       <CardContent class="p-0">
-        <Table>
+        <div class="overflow-x-auto">
+          <Table class="w-full">
           <TableHeader>
             <TableRow>
-              <TableHead class="w-[150px]">Period Start</TableHead>
-              <TableHead class="w-[150px]">Period End</TableHead>
-              <TableHead class="w-[120px]">Status</TableHead>
-              <TableHead class="w-[100px]">Entries</TableHead>
-              <TableHead class="w-[150px]">Submitted</TableHead>
-              <TableHead class="w-[200px]">Actions</TableHead>
+              <TableHead class="w-1/6">Period Start</TableHead>
+              <TableHead class="w-1/6">Period End</TableHead>
+              <TableHead class="w-20">Status</TableHead>
+              <TableHead class="w-16">Entries</TableHead>
+              <TableHead class="w-1/6">Submitted</TableHead>
+              <TableHead class="w-1/4">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -237,7 +244,8 @@ onMounted(() => {
               </TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </CardContent>
     </Card>
 
@@ -279,14 +287,15 @@ onMounted(() => {
 
             <!-- Entries Table -->
             <div class="border rounded-lg">
-              <Table>
+              <div class="overflow-x-auto">
+                <Table class="w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead class="w-[120px]">Date</TableHead>
-                    <TableHead class="w-[30%]">PPA</TableHead>
-                    <TableHead class="w-[30%]">KPI</TableHead>
-                    <TableHead class="w-[120px]">Status</TableHead>
-                    <TableHead class="w-[20%]">Remarks</TableHead>
+                    <TableHead class="w-24">Date</TableHead>
+                    <TableHead class="w-1/3">PPA</TableHead>
+                    <TableHead class="w-1/3">KPI</TableHead>
+                    <TableHead class="w-20">Status</TableHead>
+                    <TableHead class="w-1/6">Remarks</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -299,23 +308,30 @@ onMounted(() => {
                     <TableCell class="font-medium">
                       {{ formatDate(entry.entry_date) }}
                     </TableCell>
-                    <TableCell class="break-words text-sm">
-                      {{ entry.ppa }}
+                    <TableCell class="max-w-0 text-sm">
+                      <div class="truncate" :title="entry.ppa">
+                        {{ entry.ppa }}
+                      </div>
                     </TableCell>
-                    <TableCell class="break-words text-sm">
-                      {{ entry.kpi }}
+                    <TableCell class="max-w-0 text-sm">
+                      <div class="truncate" :title="entry.kpi">
+                        {{ entry.kpi }}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
                         {{ entry.status }}
                       </span>
                     </TableCell>
-                    <TableCell class="break-words text-sm">
-                      {{ entry.remarks || '-' }}
+                    <TableCell class="max-w-0 text-sm">
+                      <div class="truncate" :title="entry.remarks || ''">
+                        {{ entry.remarks || '-' }}
+                      </div>
                     </TableCell>
                   </TableRow>
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             </div>
           </div>
         </div>
