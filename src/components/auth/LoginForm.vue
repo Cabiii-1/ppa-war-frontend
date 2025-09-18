@@ -46,28 +46,18 @@ const handleSubmit = async () => {
 
 <template>
   <div :class="cn('flex flex-col gap-6', props.class)">
-    <div class="flex flex-col items-center gap-4 text-center mb-6">
-      <div class="flex items-center gap-3">
-        <div class="flex items-center justify-center w-12 h-12 bg-primary text-primary-foreground rounded-lg">
-          <Building2 class="w-6 h-6" />
-        </div>
-        <div>
-          <h1 class="text-2xl font-bold text-primary">PGC</h1>
-          <p class="text-sm text-muted-foreground">Daily Accomplishment Report</p>
-        </div>
-      </div>
-    </div>
-
-    <Card>
-      <CardHeader>
-        <CardTitle>Login to your account</CardTitle>
-        <CardDescription>
-          Enter your PGC credentials to access the DAR system
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form @submit.prevent="handleSubmit">
+    <Card class="overflow-hidden p-0">
+      <CardContent class="grid p-0 md:grid-cols-2">
+        <form @submit.prevent="handleSubmit" class="p-6 md:p-8">
           <div class="flex flex-col gap-6">
+            <div class="flex flex-col items-center text-center">
+              <h1 class="text-2xl font-bold">
+                Welcome back
+              </h1>
+              <p class="text-muted-foreground text-balance">
+                Login to your PGC Daily Accomplishment Report account
+              </p>
+            </div>
             <div class="grid gap-3">
               <Label for="username">Username</Label>
               <Input
@@ -84,7 +74,7 @@ const handleSubmit = async () => {
                 <Label for="password">Password</Label>
                 <a
                   href="#"
-                  class="ml-auto inline-block text-sm underline-offset-4 hover:underline text-muted-foreground"
+                  class="ml-auto text-sm underline-offset-2 hover:underline"
                 >
                   Forgot your password?
                 </a>
@@ -103,19 +93,27 @@ const handleSubmit = async () => {
               {{ authStore.error }}
             </div>
 
-            <div class="flex flex-col gap-3">
-              <Button
-                type="submit"
-                class="w-full"
-                :disabled="authStore.isLoading || !form.username || !form.password"
-              >
-                <span v-if="authStore.isLoading">Signing in...</span>
-                <span v-else>Sign In</span>
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              class="w-full"
+              :disabled="authStore.isLoading || !form.username || !form.password"
+            >
+              <span v-if="authStore.isLoading">Signing in...</span>
+              <span v-else>Login</span>
+            </Button>
           </div>
         </form>
+        <div class="bg-muted relative hidden md:block">
+          <img
+            src="/sso_logo.webp"
+            alt="PGC Logo"
+            class="absolute inset-0 h-full w-full object-contain p-8 dark:brightness-[0.8]"
+          />
+        </div>
       </CardContent>
     </Card>
+    <div class="text-muted-foreground text-center text-xs text-balance">
+      Philippine Gambling Corporation - Daily Accomplishment Report System
+    </div>
   </div>
 </template>
