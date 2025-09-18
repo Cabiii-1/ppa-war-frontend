@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge'
 import { Search, Eye, Trash2, CheckCircle, Archive } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
+import PdfReportActions from '@/components/pdf/PdfReportActions.vue'
 
 const authStore = useAuthStore()
 
@@ -139,7 +140,7 @@ onMounted(() => {
               <TableHead class="w-[120px]">Status</TableHead>
               <TableHead class="w-[100px]">Entries</TableHead>
               <TableHead class="w-[150px]">Submitted</TableHead>
-              <TableHead class="w-[150px]">Actions</TableHead>
+              <TableHead class="w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -193,10 +194,16 @@ onMounted(() => {
                 {{ report.submitted_at ? formatDate(report.submitted_at) : '-' }}
               </TableCell>
               <TableCell>
-                <div class="flex items-center space-x-1">
+                <div class="flex items-center space-x-2">
                   <Button variant="ghost" size="sm" @click="viewReport(report)">
                     <Eye class="h-3 w-3" />
                   </Button>
+
+                  <PdfReportActions
+                    :report="report"
+                    variant="outline"
+                    size="sm"
+                  />
 
                   <Button
                     v-if="report.status === 'draft'"
@@ -238,9 +245,17 @@ onMounted(() => {
     <Dialog v-model:open="showViewDialog">
       <DialogContent class="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle v-if="selectedReport">
-            Weekly Report: {{ formatDate(selectedReport.period_start) }} - {{ formatDate(selectedReport.period_end) }}
-          </DialogTitle>
+          <div class="flex items-center justify-between">
+            <DialogTitle v-if="selectedReport">
+              Weekly Report: {{ formatDate(selectedReport.period_start) }} - {{ formatDate(selectedReport.period_end) }}
+            </DialogTitle>
+            <PdfReportActions
+              v-if="selectedReport"
+              :report="selectedReport"
+              variant="default"
+              size="sm"
+            />
+          </div>
         </DialogHeader>
         <div class="flex-1 overflow-auto">
           <div v-if="selectedReport" class="space-y-4">
