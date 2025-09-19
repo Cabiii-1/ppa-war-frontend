@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import {
-  BadgeCheck,
-  Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
-  Sparkles,
-  User,
 } from "lucide-vue-next"
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -32,7 +27,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-const props = defineProps<{
+defineProps<{
   user: {
     name: string
     email: string

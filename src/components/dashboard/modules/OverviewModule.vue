@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, TrendingUp, Users, Calendar } from "lucide-vue-next"
 
 const authStore = useAuthStore()
 

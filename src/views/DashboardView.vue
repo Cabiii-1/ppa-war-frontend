@@ -17,8 +17,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, TrendingUp, Users, Calendar } from "lucide-vue-next"
 
 const route = useRoute()
 const authStore = useAuthStore()

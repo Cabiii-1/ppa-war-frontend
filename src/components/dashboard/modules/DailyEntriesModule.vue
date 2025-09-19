@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
-import { format, parseISO, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns'
-import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate, toCalendarDate } from '@internationalized/date'
-import type { DateRange, DateValue } from 'reka-ui'
+import { format, parseISO, startOfWeek, startOfDay, endOfDay } from 'date-fns'
+import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate } from '@internationalized/date'
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
 import { weeklyReportsService } from '@/services/weeklyReports'
@@ -21,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Filter, Calendar as CalendarIcon, Edit, Trash2 } from 'lucide-vue-next'
+import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2 } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const authStore = useAuthStore()
@@ -40,15 +39,14 @@ const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const showConfirmDialog = ref(false)
 const showDeleteConfirmDialog = ref(false)
-const selectedEntryDate = ref<DateValue>(fromDate(new Date(), getLocalTimeZone()))
+const selectedEntryDate = ref(fromDate(new Date(), getLocalTimeZone()))
 const editingEntry = ref<Entry | null>(null)
 const pendingUpdateData = ref<any>(null)
 const pendingDeleteId = ref<number | null>(null)
-const selectedDateRange = ref<DateRange>({
+const selectedDateRange = ref({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
 })
-const hoveredWeekdays = ref<{ start: Date, end: Date } | null>(null)
 
 // Form state
 const newEntry = reactive<CreateEntryData>({
@@ -85,8 +83,8 @@ const filteredEntries = computed(() => {
 })
 
 const dateRangeText = computed(() => {
-  if (selectedDateRange.value.start) {
-    if (selectedDateRange.value.end) {
+  if (selectedDateRange.value?.start) {
+    if (selectedDateRange.value?.end) {
       const startDate = selectedDateRange.value.start.toDate(getLocalTimeZone())
       const endDate = selectedDateRange.value.end.toDate(getLocalTimeZone())
 
@@ -144,7 +142,7 @@ const loadEntries = async () => {
       employee_id: authStore.user?.employee_id || authStore.user?.id?.toString()
     }
 
-    if (selectedDateRange.value.start && selectedDateRange.value.end) {
+    if (selectedDateRange.value?.start && selectedDateRange.value?.end) {
       currentFilters.date_from = format(selectedDateRange.value.start.toDate(getLocalTimeZone()), 'yyyy-MM-dd')
       currentFilters.date_to = format(selectedDateRange.value.end.toDate(getLocalTimeZone()), 'yyyy-MM-dd')
     }
@@ -167,7 +165,7 @@ const addEntry = async () => {
     newEntry.employee_id = authStore.user?.employee_id || authStore.user?.id?.toString() || ''
 
     // Convert calendar date to string format for API
-    newEntry.entry_date = format(selectedEntryDate.value.toDate(getLocalTimeZone()), 'yyyy-MM-dd')
+    newEntry.entry_date = format(selectedEntryDate.value!.toDate(), 'yyyy-MM-dd')
 
     const response = await entriesService.createEntry(newEntry)
     if (response.success) {
@@ -264,9 +262,9 @@ const formatDate = (dateString: string) => {
   return format(parseISO(dateString), 'MMM dd, yyyy')
 }
 
-const handleDateRangeSelect = (range: DateRange) => {
+const handleDateRangeSelect = (range: any) => {
   selectedDateRange.value = range
-  if (range.start && range.end) {
+  if (range?.start && range?.end) {
     loadEntries()
   }
 }
@@ -300,20 +298,6 @@ const selectNextWeekdays = () => {
   selectWeekdays(nextWeek)
 }
 
-// Handle calendar cell hover for weekday highlighting
-const handleCalendarCellHover = (date: Date | null) => {
-  if (date) {
-    const { start: weekdayStart, end: weekdayEnd } = getWeekdayRange(date)
-    hoveredWeekdays.value = { start: weekdayStart, end: weekdayEnd }
-  } else {
-    hoveredWeekdays.value = null
-  }
-}
-
-// Handle calendar cell click for weekday selection
-const handleCalendarCellClick = (date: Date) => {
-  selectWeekdays(date)
-}
 
 const saveToWeeklyReport = async () => {
   if (filteredEntries.value.length === 0) {
@@ -326,8 +310,8 @@ const saveToWeeklyReport = async () => {
 const confirmSaveToWeeklyReport = async () => {
   try {
     const entryIds = filteredEntries.value.map(entry => entry.id)
-    const startDate = selectedDateRange.value.start?.toDate(getLocalTimeZone())
-    const endDate = selectedDateRange.value.end?.toDate(getLocalTimeZone())
+    const startDate = selectedDateRange.value?.start?.toDate(getLocalTimeZone())
+    const endDate = selectedDateRange.value?.end?.toDate(getLocalTimeZone())
 
     if (!startDate || !endDate) {
       alert('Please select a valid date range.')
@@ -343,14 +327,14 @@ const confirmSaveToWeeklyReport = async () => {
 
       try {
         // Update the existing weekly report with all entries from the current date range
-        const response = await weeklyReportsService.updateWeeklyReport(existingReportId, {
+        const response = await weeklyReportsService.updateWeeklyReport(existingReportId!, {
           entry_ids: entryIds
         })
 
         if (response.success) {
           // Preview PDF after successful update
           try {
-            const blob = await PdfService.previewWeeklyReportPdf(existingReportId)
+            const blob = await PdfService.previewWeeklyReportPdf(existingReportId!)
             PdfService.previewBlobInNewTab(blob)
           } catch (pdfError) {
             console.error('Failed to preview updated PDF:', pdfError)
@@ -437,12 +421,12 @@ onMounted(() => {
                       )"
                     >
                       <CalendarIcon class="mr-2 h-4 w-4" />
-                      {{ selectedEntryDate ? df.format(selectedEntryDate.toDate(getLocalTimeZone())) : 'Select date' }}
+                      {{ selectedEntryDate ? df.format(selectedEntryDate.toDate()) : 'Select date' }}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent class="w-auto p-0">
                     <Calendar
-                      v-model="selectedEntryDate"
+                      v-model="selectedEntryDate as any"
                       initial-focus
                     />
                   </PopoverContent>
@@ -698,7 +682,7 @@ onMounted(() => {
           </div>
           <div class="weekday-calendar">
             <RangeCalendar
-              v-model="selectedDateRange"
+              v-model="selectedDateRange as any"
               initial-focus
               :number-of-months="2"
               @update:model-value="handleDateRangeSelect"

@@ -48,12 +48,12 @@ const data = computed(() => ({
       icon: FileText,
       isActive: true,
     },
-    {
-      title: "Weekly Reports",
-      url: "/dashboard/weekly-reports",
-      icon: Calendar,
-      isActive: false,
-    },
+    // {
+    //   title: "Weekly Reports",
+    //   url: "/dashboard/weekly-reports",
+    //   icon: Calendar,
+    //   isActive: false,
+    // },
   ],
 
 }))

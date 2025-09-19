@@ -49,7 +49,7 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _, next) => {
   const authStore = useAuthStore()
 
   // If user has token but no user data, try to fetch user

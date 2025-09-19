@@ -75,10 +75,10 @@ export const authService = {
 export const authFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const token = localStorage.getItem('auth_token')
 
-  const headers = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    ...options.headers
+    ...(options.headers as Record<string, string> || {})
   }
 
   if (token) {

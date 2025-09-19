@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Building2 } from "lucide-vue-next"
 import LoginForm from "@/components/auth/LoginForm.vue"
 </script>
 

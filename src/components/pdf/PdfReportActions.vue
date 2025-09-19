@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { PdfService } from '@/services/pdfService'
 import type { WeeklyReport } from '@/services/weeklyReports'
-import type { PdfGenerationStatus } from '@/types/pdf'
 
 import { Button } from '@/components/ui/button'
 import {

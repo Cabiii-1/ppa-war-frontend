@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { format, parseISO } from 'date-fns'
 import { useAuthStore } from '@/stores/auth'
 import { weeklyReportsService } from '@/services/weeklyReports'
 import type { WeeklyReport } from '@/services/weeklyReports'
-import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Search, Eye, Trash2, CheckCircle, Archive } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -50,7 +49,7 @@ const loadReports = async () => {
   try {
     const response = await weeklyReportsService.getWeeklyReports()
     if (response.success) {
-      reports.value = response.data.data || []
+      reports.value = response.data || []
     }
   } catch (error) {
     console.error('Failed to load weekly reports:', error)
@@ -64,7 +63,7 @@ const viewReport = async (report: WeeklyReport) => {
     selectedReport.value = report
     const response = await weeklyReportsService.getWeeklyReport(report.id)
     if (response.success) {
-      reportEntries.value = response.data.entries || []
+      reportEntries.value = (response.data as any)?.entries || []
       showViewDialog.value = true
     }
   } catch (error) {
