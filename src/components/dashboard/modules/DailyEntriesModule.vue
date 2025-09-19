@@ -5,6 +5,7 @@ import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate } from '@intern
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
 import { weeklyReportsService } from '@/services/weeklyReports'
+import { enumsService } from '@/services/enums'
 import { PdfService } from '@/services/pdfService'
 import type { Entry, CreateEntryData, EntryFilters, PaginatedEntries } from '@/types/entry'
 import { cn } from '@/lib/utils'
@@ -34,6 +35,8 @@ const df = new DateFormatter('en-US', {
 const entries = ref<Entry[]>([])
 const pagination = ref<PaginatedEntries | null>(null)
 const loading = ref(false)
+const statusOptions = ref<string[]>([])
+const loadingStatusOptions = ref(false)
 const searchQuery = ref('')
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
@@ -133,6 +136,22 @@ const getCurrentWeekdayRange = () => {
 selectedDateRange.value = getCurrentWeekdayRange()
 
 // Methods
+const loadStatusOptions = async () => {
+  loadingStatusOptions.value = true
+  try {
+    const response = await enumsService.getStatusOptions()
+    if (response.success) {
+      statusOptions.value = response.data
+    }
+  } catch (error) {
+    console.error('Failed to load status options:', error)
+    // Fallback to hardcoded values if API fails
+    statusOptions.value = ['Accomplished', 'In Progress', 'Delayed', 'Others']
+  } finally {
+    loadingStatusOptions.value = false
+  }
+}
+
 const loadEntries = async () => {
   loading.value = true
   try {
@@ -383,7 +402,8 @@ const confirmSaveToWeeklyReport = async () => {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  await loadStatusOptions()
   loadEntries()
 })
 </script>
@@ -471,9 +491,13 @@ onMounted(() => {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Ongoing">Ongoing</SelectItem>
-                    <SelectItem value="Accomplished">Accomplished</SelectItem>
-                    <SelectItem value="Delayed">Delayed</SelectItem>
+                    <SelectItem
+                      v-for="option in statusOptions"
+                      :key="option"
+                      :value="option"
+                    >
+                      {{ option }}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                <Input
@@ -550,9 +574,13 @@ onMounted(() => {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Ongoing">Ongoing</SelectItem>
-                    <SelectItem value="Accomplished">Accomplished</SelectItem>
-                    <SelectItem value="Delayed">Delayed</SelectItem>
+                    <SelectItem
+                      v-for="option in statusOptions"
+                      :key="option"
+                      :value="option"
+                    >
+                      {{ option }}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <Input
