@@ -19,6 +19,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { RangeCalendar } from '@/components/ui/range-calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2 } from 'lucide-vue-next'
@@ -801,24 +802,76 @@ onMounted(async () => {
                   {{ formatDate(entry.entry_date) }}
                 </TableCell>
                 <TableCell class="max-w-0 text-sm">
-                  <div class="truncate" :title="entry.ppa">
-                    {{ entry.ppa }}
-                  </div>
+                  <HoverCard :open-delay="100" :close-delay="100">
+                    <HoverCardTrigger as-child>
+                      <div class="truncate cursor-pointer" :title="entry.ppa">
+                        {{ entry.ppa }}
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent class="w-96" side="top">
+                      <div class="space-y-2">
+                        <h4 class="text-sm font-semibold">PPA (Program/Project/Activity)</h4>
+                        <p class="text-sm text-muted-foreground">
+                          {{ entry.ppa }}
+                        </p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </TableCell>
                 <TableCell class="max-w-0 text-sm">
-                  <div class="truncate" :title="entry.kpi">
-                    {{ entry.kpi }}
-                  </div>
+                  <HoverCard :open-delay="100" :close-delay="100">
+                    <HoverCardTrigger as-child>
+                      <div class="truncate cursor-pointer" :title="entry.kpi">
+                        {{ entry.kpi }}
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent class="w-96" side="top">
+                      <div class="space-y-2">
+                        <h4 class="text-sm font-semibold">KPI (Key Performance Indicator)</h4>
+                        <p class="text-sm text-muted-foreground">
+                          {{ entry.kpi }}
+                        </p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </TableCell>
                 <TableCell>
-                  <span :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium', getStatusColorClasses(entry.status))">
+                  <HoverCard v-if="entry.status_comment" :open-delay="100" :close-delay="100">
+                    <HoverCardTrigger as-child>
+                      <span :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium cursor-pointer', getStatusColorClasses(entry.status))">
+                        {{ entry.status }}
+                      </span>
+                    </HoverCardTrigger>
+                    <HoverCardContent class="w-80" side="top">
+                      <div class="space-y-2">
+                        <h4 class="text-sm font-semibold">Status Comment</h4>
+                        <p class="text-sm text-muted-foreground">
+                          {{ entry.status_comment }}
+                        </p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                  <span v-else :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium', getStatusColorClasses(entry.status))">
                     {{ entry.status }}
                   </span>
                 </TableCell>
                 <TableCell class="max-w-0 text-sm">
-                  <div class="truncate" :title="entry.remarks || ''">
-                    {{ entry.remarks || '-' }}
-                  </div>
+                  <HoverCard v-if="entry.remarks" :open-delay="100" :close-delay="100">
+                    <HoverCardTrigger as-child>
+                      <div class="truncate cursor-pointer" :title="entry.remarks">
+                        {{ entry.remarks }}
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent class="w-96" side="top">
+                      <div class="space-y-2">
+                        <h4 class="text-sm font-semibold">Remarks</h4>
+                        <p class="text-sm text-muted-foreground">
+                          {{ entry.remarks }}
+                        </p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                  <span v-else class="text-muted-foreground">-</span>
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center space-x-1">

@@ -11,8 +11,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Search, Eye, Trash2, CheckCircle, Archive } from 'lucide-vue-next'
+import { Search, Eye, Trash2, CheckCircle, Archive, MoreVertical } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import PdfReportActions from '@/components/pdf/PdfReportActions.vue'
 
 const authStore = useAuthStore()
@@ -202,44 +203,56 @@ onMounted(() => {
               </TableCell>
               <TableCell>
                 <div class="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" @click="viewReport(report)">
-                    <Eye class="h-3 w-3" />
-                  </Button>
-
                   <PdfReportActions
                     :report="report"
                     variant="outline"
                     size="sm"
                   />
 
-                  <Button
-                    v-if="report.status === 'draft'"
-                    variant="ghost"
-                    size="sm"
-                    @click="updateStatus(report.id, 'submitted')"
-                    class="text-green-600 hover:text-green-700"
-                  >
-                    <CheckCircle class="h-3 w-3" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical class="h-4 w-4" />
+                        <span class="sr-only">Open menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem @click="viewReport(report)">
+                        <Eye class="mr-2 h-4 w-4" />
+                        View Report
+                      </DropdownMenuItem>
 
-                  <Button
-                    v-if="report.status === 'submitted'"
-                    variant="ghost"
-                    size="sm"
-                    @click="updateStatus(report.id, 'archived')"
-                    class="text-blue-600 hover:text-blue-700"
-                  >
-                    <Archive class="h-3 w-3" />
-                  </Button>
+                      <DropdownMenuSeparator />
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="deleteReport(report.id)"
-                    class="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 class="h-3 w-3" />
-                  </Button>
+                      <DropdownMenuItem
+                        v-if="report.status === 'draft'"
+                        @click="updateStatus(report.id, 'submitted')"
+                        class="text-green-600"
+                      >
+                        <CheckCircle class="mr-2 h-4 w-4" />
+                        Submit Report
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        v-if="report.status === 'submitted'"
+                        @click="updateStatus(report.id, 'archived')"
+                        class="text-blue-600"
+                      >
+                        <Archive class="mr-2 h-4 w-4" />
+                        Archive Report
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+
+                      <DropdownMenuItem
+                        @click="deleteReport(report.id)"
+                        class="text-red-600"
+                      >
+                        <Trash2 class="mr-2 h-4 w-4" />
+                        Delete Report
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </TableCell>
             </TableRow>
