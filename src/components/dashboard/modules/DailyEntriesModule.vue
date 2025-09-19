@@ -281,6 +281,21 @@ const formatDate = (dateString: string) => {
   return format(parseISO(dateString), 'MMM dd, yyyy')
 }
 
+const getStatusColorClasses = (status: string) => {
+  switch (status) {
+    case 'Accomplished':
+      return 'bg-green-100 text-green-800'
+    case 'In Progress':
+      return 'bg-blue-100 text-blue-800'
+    case 'Delayed':
+      return 'bg-red-100 text-red-800'
+    case 'Others':
+      return 'bg-gray-100 text-gray-800'
+    default:
+      return 'bg-blue-100 text-blue-800' // fallback
+  }
+}
+
 const handleDateRangeSelect = (range: any) => {
   selectedDateRange.value = range
   if (range?.start && range?.end) {
@@ -796,7 +811,7 @@ onMounted(async () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                  <span :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium', getStatusColorClasses(entry.status))">
                     {{ entry.status }}
                   </span>
                 </TableCell>
