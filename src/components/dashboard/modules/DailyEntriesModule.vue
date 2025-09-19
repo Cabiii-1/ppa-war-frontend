@@ -338,15 +338,32 @@ const confirmSaveToWeeklyReport = async () => {
     const assignedEntries = filteredEntries.value.filter(entry => entry.weekly_report_id)
 
     if (assignedEntries.length > 0) {
-      // If entries are already assigned, preview the existing weekly report
+      // If entries are already assigned, update the existing weekly report
       const existingReportId = assignedEntries[0].weekly_report_id
 
       try {
-        const blob = await PdfService.previewWeeklyReportPdf(existingReportId)
-        PdfService.previewBlobInNewTab(blob)
-      } catch (pdfError) {
-        console.error('Failed to preview existing PDF:', pdfError)
-        alert('Failed to preview the existing weekly report PDF. Please check the Weekly Reports page.')
+        // Update the existing weekly report with all entries from the current date range
+        const response = await weeklyReportsService.updateWeeklyReport(existingReportId, {
+          entry_ids: entryIds
+        })
+
+        if (response.success) {
+          // Preview PDF after successful update
+          try {
+            const blob = await PdfService.previewWeeklyReportPdf(existingReportId)
+            PdfService.previewBlobInNewTab(blob)
+          } catch (pdfError) {
+            console.error('Failed to preview updated PDF:', pdfError)
+            alert('Weekly report updated, but failed to preview PDF. You can access it from the Weekly Reports page.')
+          }
+
+          await loadEntries() // Reload to show updated entries
+        } else {
+          alert('Failed to update weekly report. Please try again.')
+        }
+      } catch (updateError) {
+        console.error('Failed to update existing weekly report:', updateError)
+        alert('Failed to update the existing weekly report. Please try again.')
       }
       return
     }

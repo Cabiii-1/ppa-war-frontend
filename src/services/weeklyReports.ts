@@ -50,6 +50,10 @@ export interface CreateWeeklyReportData {
   period_end: string
 }
 
+export interface UpdateWeeklyReportData {
+  entry_ids: number[]
+}
+
 export const weeklyReportsService = {
   async createWeeklyReport(data: CreateWeeklyReportData): Promise<ApiResponse<WeeklyReport>> {
     const response = await api.post('/weekly-reports', data)
@@ -63,6 +67,11 @@ export const weeklyReportsService = {
 
   async getWeeklyReport(id: number): Promise<ApiResponse<WeeklyReport>> {
     const response = await api.get(`/weekly-reports/${id}`)
+    return response.data
+  },
+
+  async updateWeeklyReport(id: number, data: UpdateWeeklyReportData): Promise<ApiResponse<WeeklyReport>> {
+    const response = await api.put(`/weekly-reports/${id}`, data)
     return response.data
   },
 
