@@ -5,6 +5,7 @@ export interface Entry {
   ppa: string
   kpi: string
   status: string
+  status_comment?: string
   remarks?: string
   weekly_report_id?: number
   created_at: string
@@ -27,6 +28,7 @@ export interface CreateEntryData {
   ppa: string
   kpi: string
   status: string
+  status_comment?: string
   remarks?: string
   weekly_report_id?: number
 }

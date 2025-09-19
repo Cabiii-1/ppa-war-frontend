@@ -142,8 +142,7 @@ onMounted(() => {
           <Table class="w-full">
           <TableHeader>
             <TableRow>
-              <TableHead class="w-1/6">Period Start</TableHead>
-              <TableHead class="w-1/6">Period End</TableHead>
+              <TableHead class="w-1/3">Period</TableHead>
               <TableHead class="w-20">Status</TableHead>
               <TableHead class="w-16">Entries</TableHead>
               <TableHead class="w-1/6">Submitted</TableHead>
@@ -154,10 +153,7 @@ onMounted(() => {
             <template v-if="loading">
               <TableRow v-for="i in 5" :key="`skeleton-${i}`">
                 <TableCell>
-                  <Skeleton class="h-4 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton class="h-4 w-24" />
+                  <Skeleton class="h-4 w-40" />
                 </TableCell>
                 <TableCell>
                   <Skeleton class="h-6 w-16 rounded-md" />
@@ -178,16 +174,13 @@ onMounted(() => {
               </TableRow>
             </template>
             <TableRow v-else-if="filteredReports.length === 0">
-              <TableCell colspan="6" class="text-center py-8 text-muted-foreground">
+              <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
                 No weekly reports found
               </TableCell>
             </TableRow>
             <TableRow v-else v-for="report in filteredReports" :key="report.id">
               <TableCell class="font-medium">
-                {{ formatDate(report.period_start) }}
-              </TableCell>
-              <TableCell>
-                {{ formatDate(report.period_end) }}
+                {{ formatDate(report.period_start) }} - {{ formatDate(report.period_end) }}
               </TableCell>
               <TableCell>
                 <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">

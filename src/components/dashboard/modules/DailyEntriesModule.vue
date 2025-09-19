@@ -6,6 +6,7 @@ import type { DateRange, DateValue } from 'reka-ui'
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
 import { weeklyReportsService } from '@/services/weeklyReports'
+import { PdfService } from '@/services/pdfService'
 import type { Entry, CreateEntryData, EntryFilters, PaginatedEntries } from '@/types/entry'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
 import { RangeCalendar } from '@/components/ui/range-calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -42,7 +44,6 @@ const selectedEntryDate = ref<DateValue>(fromDate(new Date(), getLocalTimeZone()
 const editingEntry = ref<Entry | null>(null)
 const pendingUpdateData = ref<any>(null)
 const pendingDeleteId = ref<number | null>(null)
-const showSaveToWeeklyDialog = ref(false)
 const selectedDateRange = ref<DateRange>({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
@@ -56,6 +57,7 @@ const newEntry = reactive<CreateEntryData>({
   ppa: '',
   kpi: '',
   status: '',
+  status_comment: '',
   remarks: ''
 })
 
@@ -63,6 +65,7 @@ const editEntry = reactive<Partial<Entry>>({
   ppa: '',
   kpi: '',
   status: '',
+  status_comment: '',
   remarks: ''
 })
 
@@ -203,6 +206,7 @@ const openEditDialog = (entry: Entry) => {
     ppa: entry.ppa,
     kpi: entry.kpi,
     status: entry.status,
+    status_comment: entry.status_comment || '',
     remarks: entry.remarks || ''
   })
   showEditDialog.value = true
@@ -238,6 +242,7 @@ const resetEditForm = () => {
     ppa: '',
     kpi: '',
     status: '',
+    status_comment: '',
     remarks: ''
   })
 }
@@ -250,6 +255,7 @@ const resetForm = () => {
     ppa: '',
     kpi: '',
     status: '',
+    status_comment: '',
     remarks: ''
   })
 }
@@ -309,12 +315,12 @@ const handleCalendarCellClick = (date: Date) => {
   selectWeekdays(date)
 }
 
-const saveToWeeklyReport = () => {
+const saveToWeeklyReport = async () => {
   if (filteredEntries.value.length === 0) {
     alert('No entries found in the current date range to save to weekly report.')
     return
   }
-  showSaveToWeeklyDialog.value = true
+  await confirmSaveToWeeklyReport()
 }
 
 const confirmSaveToWeeklyReport = async () => {
@@ -328,6 +334,24 @@ const confirmSaveToWeeklyReport = async () => {
       return
     }
 
+    // Check if any entries are already assigned to a weekly report
+    const assignedEntries = filteredEntries.value.filter(entry => entry.weekly_report_id)
+
+    if (assignedEntries.length > 0) {
+      // If entries are already assigned, preview the existing weekly report
+      const existingReportId = assignedEntries[0].weekly_report_id
+
+      try {
+        const blob = await PdfService.previewWeeklyReportPdf(existingReportId)
+        PdfService.previewBlobInNewTab(blob)
+      } catch (pdfError) {
+        console.error('Failed to preview existing PDF:', pdfError)
+        alert('Failed to preview the existing weekly report PDF. Please check the Weekly Reports page.')
+      }
+      return
+    }
+
+    // If no entries are assigned, create a new weekly report
     const response = await weeklyReportsService.createWeeklyReport({
       entry_ids: entryIds,
       period_start: format(startDate, 'yyyy-MM-dd'),
@@ -335,8 +359,18 @@ const confirmSaveToWeeklyReport = async () => {
     })
 
     if (response.success) {
-      alert(`Weekly report created successfully! ${entryIds.length} entries have been added to the report.`)
-      showSaveToWeeklyDialog.value = false
+      // Preview PDF after successful creation using PdfService
+      const weeklyReportId = response.data.id
+      if (weeklyReportId) {
+        try {
+          const blob = await PdfService.previewWeeklyReportPdf(weeklyReportId)
+          PdfService.previewBlobInNewTab(blob)
+        } catch (pdfError) {
+          console.error('Failed to preview PDF:', pdfError)
+          alert('Weekly report created, but failed to preview PDF. You can access it from the Weekly Reports page.')
+        }
+      }
+
       await loadEntries() // Reload to show updated entries with weekly_report_id
     } else {
       alert('Failed to create weekly report. Please try again.')
@@ -398,12 +432,12 @@ onMounted(() => {
                 </Popover>
               </div>
               <div class="space-y-2">
-                <Label for="status">Status</Label>
-                <Input
-                  id="status"
-                  v-model="newEntry.status"
-                  placeholder="e.g., Completed, In Progress"
-                  required
+                <Label for="remarks">Remarks (Optional)</Label>
+                <Textarea
+                  id="remarks"
+                  v-model="newEntry.remarks"
+                  placeholder="Additional notes or comments"
+                  class="min-h-[40px]"
                 />
               </div>
             </div>
@@ -429,12 +463,25 @@ onMounted(() => {
             </div>
 
             <div class="space-y-2">
-              <Label for="remarks">Remarks (Optional)</Label>
-              <Textarea
-                id="remarks"
-                v-model="newEntry.remarks"
-                placeholder="Additional notes or comments"
-              />
+              <Label for="status">Status</Label>
+              <div class="grid grid-cols-2 gap-2">
+                <Select v-model="newEntry.status" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ongoing">Ongoing</SelectItem>
+                    <SelectItem value="Accomplished">Accomplished</SelectItem>
+                    <SelectItem value="Delayed">Delayed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="status_comment"
+                  v-model="newEntry.status_comment"
+                  placeholder="Comment (optional)"
+                  class="text-sm"
+                />
+              </div>
             </div>
 
             <div class="flex justify-end space-x-2">
@@ -456,21 +503,22 @@ onMounted(() => {
             <DialogTitle>Edit Entry</DialogTitle>
           </DialogHeader>
           <form @submit.prevent="updateEntry" class="space-y-4">
-            <div class="space-y-2">
-              <Label>Entry Date</Label>
-              <div class="px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
-                {{ editingEntry ? formatDate(editingEntry.entry_date) : '' }}
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label>Entry Date</Label>
+                <div class="px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                  {{ editingEntry ? formatDate(editingEntry.entry_date) : '' }}
+                </div>
               </div>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="edit_status">Status</Label>
-              <Input
-                id="edit_status"
-                v-model="editEntry.status"
-                placeholder="e.g., Completed, In Progress"
-                required
-              />
+              <div class="space-y-2">
+                <Label for="edit_remarks">Remarks (Optional)</Label>
+                <Textarea
+                  id="edit_remarks"
+                  v-model="editEntry.remarks"
+                  placeholder="Additional notes or comments"
+                  class="min-h-[40px]"
+                />
+              </div>
             </div>
 
             <div class="space-y-2">
@@ -494,12 +542,25 @@ onMounted(() => {
             </div>
 
             <div class="space-y-2">
-              <Label for="edit_remarks">Remarks (Optional)</Label>
-              <Textarea
-                id="edit_remarks"
-                v-model="editEntry.remarks"
-                placeholder="Additional notes or comments"
-              />
+              <Label for="edit_status">Status</Label>
+              <div class="grid grid-cols-2 gap-2">
+                <Select v-model="editEntry.status" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ongoing">Ongoing</SelectItem>
+                    <SelectItem value="Accomplished">Accomplished</SelectItem>
+                    <SelectItem value="Delayed">Delayed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="edit_status_comment"
+                  v-model="editEntry.status_comment"
+                  placeholder="Comment (optional)"
+                  class="text-sm"
+                />
+              </div>
             </div>
 
             <div class="flex justify-end space-x-2">
@@ -558,39 +619,6 @@ onMounted(() => {
         </DialogContent>
       </Dialog>
 
-      <!-- Save to Weekly Report Confirmation Dialog -->
-      <Dialog v-model:open="showSaveToWeeklyDialog">
-        <DialogContent class="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Save to Weekly Report</DialogTitle>
-          </DialogHeader>
-          <div class="py-4 space-y-4">
-            <p class="text-sm text-muted-foreground">
-              This will create a new weekly report for the period <strong>{{ dateRangeText }}</strong>
-              and include all <strong>{{ filteredEntries.length }}</strong> entries currently shown in the table.
-            </p>
-            <div class="bg-muted p-3 rounded-md">
-              <p class="text-sm font-medium mb-2">Entries to be included:</p>
-              <ul class="text-xs space-y-1 max-h-32 overflow-y-auto">
-                <li v-for="entry in filteredEntries.slice(0, 5)" :key="entry.id" class="truncate">
-                  {{ formatDate(entry.entry_date) }} - {{ entry.ppa.substring(0, 50) }}...
-                </li>
-                <li v-if="filteredEntries.length > 5" class="text-muted-foreground italic">
-                  ... and {{ filteredEntries.length - 5 }} more entries
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div class="flex justify-end space-x-2">
-            <Button type="button" variant="outline" @click="showSaveToWeeklyDialog = false">
-              Cancel
-            </Button>
-            <Button type="button" @click="confirmSaveToWeeklyReport" class="bg-green-600 hover:bg-green-700">
-              Create Weekly Report
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
 
     <!-- Filters and Search -->
@@ -672,7 +700,7 @@ onMounted(() => {
         :disabled="filteredEntries.length === 0"
         class="bg-green-600 hover:bg-green-700"
       >
-        Save to Weekly Report
+        Generate Weekly Report PDF
       </Button>
     </div>
 
