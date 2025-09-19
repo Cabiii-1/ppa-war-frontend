@@ -20,7 +20,7 @@ const router = createRouter({
       path: '/dashboard',
       name: 'Dashboard',
       component: () => import('@/views/DashboardView.vue'),
-      redirect: '/dashboard/overview',
+      redirect: '/dashboard/daily-entries',
       meta: {
         requiresAuth: true
       },
@@ -70,7 +70,7 @@ router.beforeEach(async (to, _, next) => {
   // Check if route requires guest (not authenticated)
   if (to.meta.requiresGuest) {
     if (authStore.isAuthenticated) {
-      next('/dashboard')
+      next('/dashboard/daily-entries')
       return
     }
   }
