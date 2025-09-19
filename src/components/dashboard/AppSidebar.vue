@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   FileText,
   Building2,
+  Calendar,
 } from "lucide-vue-next"
 import NavMain from "@/components/dashboard/NavMain.vue"
 import NavUser from "@/components/dashboard/NavUser.vue"
@@ -47,12 +48,12 @@ const data = computed(() => ({
       icon: FileText,
       isActive: true,
     },
-    // {
-    //   title: "Weekly Reports",
-    //   url: "/dashboard/weekly-reports",
-    //   icon: Calendar,
-    //   isActive: false,
-    // },
+    {
+      title: "Weekly Reports",
+      url: "/dashboard/weekly-reports",
+      icon: Calendar,
+      isActive: false,
+    },
   ],
 
 }))

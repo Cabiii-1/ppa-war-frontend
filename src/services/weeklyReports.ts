@@ -44,6 +44,27 @@ export interface WeeklyReport {
   entries_count?: number
 }
 
+export interface PaginatedWeeklyReports {
+  current_page: number
+  data: WeeklyReport[]
+  first_page_url: string
+  from: number
+  last_page: number
+  last_page_url: string
+  links: Array<{
+    url: string | null
+    label: string
+    page: number | null
+    active: boolean
+  }>
+  next_page_url: string | null
+  path: string
+  per_page: number
+  prev_page_url: string | null
+  to: number
+  total: number
+}
+
 export interface CreateWeeklyReportData {
   entry_ids: number[]
   period_start: string
@@ -60,7 +81,7 @@ export const weeklyReportsService = {
     return response.data
   },
 
-  async getWeeklyReports(): Promise<ApiResponse<WeeklyReport[]>> {
+  async getWeeklyReports(): Promise<ApiResponse<PaginatedWeeklyReports>> {
     const response = await api.get('/weekly-reports')
     return response.data
   },

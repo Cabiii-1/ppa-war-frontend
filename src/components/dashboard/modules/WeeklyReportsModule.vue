@@ -29,8 +29,11 @@ const pendingDeleteId = ref<number | null>(null)
 
 // Computed
 const filteredReports = computed(() => {
+  // Ensure reports.value is always an array
+  const reportsArray = Array.isArray(reports.value) ? reports.value : []
+
   // First filter by current user's employee_id
-  const userReports = reports.value.filter(report =>
+  const userReports = reportsArray.filter(report =>
     report.employee_id === authStore.user?.employee_id
   )
 
@@ -49,10 +52,15 @@ const loadReports = async () => {
   try {
     const response = await weeklyReportsService.getWeeklyReports()
     if (response.success) {
-      reports.value = response.data || []
+      // Handle paginated response - extract the actual reports array
+      reports.value = response.data?.data || []
+    } else {
+      reports.value = []
+      console.error('Failed to load weekly reports:', response.message || 'Unknown error')
     }
   } catch (error) {
     console.error('Failed to load weekly reports:', error)
+    reports.value = []
   } finally {
     loading.value = false
   }
