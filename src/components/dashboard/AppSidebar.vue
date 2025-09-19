@@ -6,7 +6,6 @@ import { useAuthStore } from '@/stores/auth'
 import {
   FileText,
   Building2,
-  Calendar,
 } from "lucide-vue-next"
 import NavMain from "@/components/dashboard/NavMain.vue"
 import NavUser from "@/components/dashboard/NavUser.vue"
