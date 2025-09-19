@@ -481,7 +481,7 @@ onMounted(() => {
 
             <div class="space-y-2">
               <Label for="status">Status</Label>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-3 gap-2">
                 <Select v-model="newEntry.status" required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -492,11 +492,11 @@ onMounted(() => {
                     <SelectItem value="Delayed">Delayed</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input
-                  id="status_comment"
+               <Input
+                  id="edit_status_comment"
                   v-model="newEntry.status_comment"
                   placeholder="Comment (optional)"
-                  class="text-sm"
+                  class="text-sm col-span-2"
                 />
               </div>
             </div>
@@ -560,7 +560,7 @@ onMounted(() => {
 
             <div class="space-y-2">
               <Label for="edit_status">Status</Label>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-3 gap-2">
                 <Select v-model="editEntry.status" required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -575,7 +575,7 @@ onMounted(() => {
                   id="edit_status_comment"
                   v-model="editEntry.status_comment"
                   placeholder="Comment (optional)"
-                  class="text-sm"
+                  class="text-sm col-span-2"
                 />
               </div>
             </div>
