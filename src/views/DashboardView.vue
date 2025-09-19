@@ -17,6 +17,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import ThemeToggle from "@/components/ui/ThemeToggle.vue"
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -62,6 +63,9 @@ const currentPageName = computed(() => {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+        </div>
+        <div class="ml-auto px-4">
+          <ThemeToggle />
         </div>
       </header>
 
