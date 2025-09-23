@@ -38,7 +38,7 @@ export interface WeeklyReport {
   period_start: string
   period_end: string
   submitted_at: string
-  status: 'draft' | 'submitted' | 'archived'
+  status: 'draft' | 'submitted'
   created_at: string
   updated_at: string
   entries_count?: number

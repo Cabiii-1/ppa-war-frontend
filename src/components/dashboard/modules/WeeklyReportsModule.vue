@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Search, Eye, Trash2, CheckCircle, Archive, MoreVertical } from 'lucide-vue-next'
+import { Search, Eye, Trash2, CheckCircle, MoreVertical } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import PdfReportActions from '@/components/pdf/PdfReportActions.vue'
@@ -231,15 +231,6 @@ onMounted(() => {
                       >
                         <CheckCircle class="mr-2 h-4 w-4" />
                         Submit Report
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        v-if="report.status === 'submitted'"
-                        @click="updateStatus(report.id, 'archived')"
-                        class="text-blue-600"
-                      >
-                        <Archive class="mr-2 h-4 w-4" />
-                        Archive Report
                       </DropdownMenuItem>
 
                       <DropdownMenuSeparator />
