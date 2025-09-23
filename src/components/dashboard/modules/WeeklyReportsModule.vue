@@ -13,10 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Badge } from '@/components/ui/badge'
-import { Search, Eye, Trash2, CheckCircle, MoreVertical } from 'lucide-vue-next'
+import { Search, Eye, Trash2, CheckCircle, MoreVertical, FileText, FileDown } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import PdfReportActions from '@/components/pdf/PdfReportActions.vue'
+import { PdfService } from '@/services/pdfService'
 
 const authStore = useAuthStore()
 
@@ -29,6 +29,7 @@ const showDeleteConfirmDialog = ref(false)
 const showSubmitConfirmDialog = ref(false)
 const selectedReport = ref<WeeklyReport | null>(null)
 const reportEntries = ref<any[]>([])
+const pdfLoading = ref(false)
 const pendingDeleteId = ref<number | null>(null)
 const pendingSubmitId = ref<number | null>(null)
 
@@ -139,6 +140,39 @@ const formatDate = (dateString: string) => {
   return format(parseISO(dateString), 'MMM dd, yyyy')
 }
 
+const downloadPdf = async (report: WeeklyReport) => {
+  if (pdfLoading.value) return
+
+  pdfLoading.value = true
+  try {
+    const blob = await PdfService.downloadWeeklyReportPdf(report.id)
+    const filename = PdfService.createPdfFilename(
+      report.period_start,
+      report.period_end
+    )
+    PdfService.downloadBlobAsFile(blob, filename)
+  } catch (error) {
+    console.error('PDF download error:', error)
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+const previewPdf = async (report: WeeklyReport) => {
+  if (pdfLoading.value) return
+
+  pdfLoading.value = true
+  try {
+    const blob = await PdfService.previewWeeklyReportPdf(report.id)
+    PdfService.previewBlobInNewTab(blob)
+  } catch (error) {
+    console.error('PDF preview error:', error)
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+
 
 // Lifecycle
 onMounted(() => {
@@ -210,12 +244,27 @@ onMounted(() => {
                 No weekly reports found
               </TableCell>
             </TableRow>
-            <TableRow v-else v-for="report in filteredReports" :key="report.id">
+            <TableRow
+              v-else
+              v-for="report in filteredReports"
+              :key="report.id"
+              @click="viewReport(report)"
+              class="cursor-pointer hover:bg-muted/50"
+            >
               <TableCell class="font-medium">
                 {{ formatDate(report.period_start) }} - {{ formatDate(report.period_end) }}
               </TableCell>
               <TableCell>
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                <span
+                  :class="[
+                    'inline-flex items-center px-2 py-1 rounded-md text-xs font-medium',
+                    report.status === 'draft'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : report.status === 'submitted'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-blue-100 text-blue-800'
+                  ]"
+                >
                   {{ report.status }}
                 </span>
               </TableCell>
@@ -225,46 +274,50 @@ onMounted(() => {
               <TableCell>
                 {{ report.submitted_at ? formatDate(report.submitted_at) : '-' }}
               </TableCell>
-              <TableCell>
-                <div class="flex items-center space-x-2">
-                  <PdfReportActions
-                    :report="report"
-                    variant="outline"
+              <TableCell @click.stop>
+                <div class="flex items-center space-x-1">
+                  <Button
+                    @click="report.status === 'draft' ? showSubmitConfirmation(report.id) : undefined"
+                    variant="ghost"
                     size="sm"
-                  />
+                    :class="[
+                      'w-24 justify-start',
+                      report.status === 'draft'
+                        ? 'text-green-600 hover:text-green-700'
+                        : 'text-green-500 cursor-default'
+                    ]"
+                    :disabled="report.status !== 'draft'"
+                  >
+                    <CheckCircle class="h-4 w-4 mr-1" />
+                    {{ report.status === 'draft' ? 'Submit' : 'Submitted' }}
+                  </Button>
+
+                  <Button
+                    @click="deleteReport(report.id)"
+                    variant="ghost"
+                    size="sm"
+                    class="text-red-600 hover:text-red-700 w-16 justify-start"
+                  >
+                    <Trash2 class="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" class="w-8 h-8 p-0">
                         <MoreVertical class="h-4 w-4" />
                         <span class="sr-only">Open menu</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem @click="viewReport(report)">
-                        <Eye class="mr-2 h-4 w-4" />
-                        View Report
+                      <DropdownMenuItem @click="previewPdf(report)" :disabled="pdfLoading">
+                        <FileText class="mr-2 h-4 w-4" />
+                        Preview PDF
                       </DropdownMenuItem>
 
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItem
-                        v-if="report.status === 'draft'"
-                        @click="showSubmitConfirmation(report.id)"
-                        class="text-green-600"
-                      >
-                        <CheckCircle class="mr-2 h-4 w-4" />
-                        Submit Report
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItem
-                        @click="deleteReport(report.id)"
-                        class="text-red-600"
-                      >
-                        <Trash2 class="mr-2 h-4 w-4" />
-                        Delete Report
+                      <DropdownMenuItem @click="downloadPdf(report)" :disabled="pdfLoading">
+                        <FileDown class="mr-2 h-4 w-4" />
+                        Download PDF
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
