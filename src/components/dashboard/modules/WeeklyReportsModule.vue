@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Badge } from '@/components/ui/badge'
 import { Search, Eye, Trash2, CheckCircle, MoreVertical } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,9 +26,11 @@ const loading = ref(false)
 const searchQuery = ref('')
 const showViewDialog = ref(false)
 const showDeleteConfirmDialog = ref(false)
+const showSubmitConfirmDialog = ref(false)
 const selectedReport = ref<WeeklyReport | null>(null)
 const reportEntries = ref<any[]>([])
 const pendingDeleteId = ref<number | null>(null)
+const pendingSubmitId = ref<number | null>(null)
 
 // Computed
 const filteredReports = computed(() => {
@@ -88,6 +92,26 @@ const updateStatus = async (reportId: number, status: WeeklyReport['status']) =>
     }
   } catch (error) {
     console.error('Failed to update status:', error)
+  }
+}
+
+const showSubmitConfirmation = (reportId: number) => {
+  pendingSubmitId.value = reportId
+  showSubmitConfirmDialog.value = true
+}
+
+const confirmSubmit = async () => {
+  if (pendingSubmitId.value === null) return
+
+  try {
+    const response = await weeklyReportsService.updateWeeklyReportStatus(pendingSubmitId.value, 'submitted')
+    if (response.success) {
+      showSubmitConfirmDialog.value = false
+      pendingSubmitId.value = null
+      await loadReports()
+    }
+  } catch (error) {
+    console.error('Failed to submit report:', error)
   }
 }
 
@@ -226,7 +250,7 @@ onMounted(() => {
 
                       <DropdownMenuItem
                         v-if="report.status === 'draft'"
-                        @click="updateStatus(report.id, 'submitted')"
+                        @click="showSubmitConfirmation(report.id)"
                         class="text-green-600"
                       >
                         <CheckCircle class="mr-2 h-4 w-4" />
@@ -255,39 +279,16 @@ onMounted(() => {
 
     <!-- View Report Dialog -->
     <Dialog v-model:open="showViewDialog">
-      <DialogContent class="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent class="sm:max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <div class="flex items-center justify-between">
-            <DialogTitle v-if="selectedReport">
-              Weekly Report: {{ formatDate(selectedReport.period_start) }} - {{ formatDate(selectedReport.period_end) }}
-            </DialogTitle>
-            <PdfReportActions
-              v-if="selectedReport"
-              :report="selectedReport"
-              variant="default"
-              size="sm"
-            />
-          </div>
+          <DialogTitle v-if="selectedReport">
+            Weekly Report: {{ formatDate(selectedReport.period_start) }} - {{ formatDate(selectedReport.period_end) }}
+          </DialogTitle>
         </DialogHeader>
         <div class="flex-1 overflow-auto">
           <div v-if="selectedReport" class="space-y-4">
-            <!-- Report Info -->
-            <div class="bg-muted p-4 rounded-lg space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="font-medium">Status:</span>
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
-                  {{ selectedReport.status }}
-                </span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="font-medium">Total Entries:</span>
-                <Badge variant="outline">{{ reportEntries.length }}</Badge>
-              </div>
-              <div v-if="selectedReport.submitted_at" class="flex items-center justify-between">
-                <span class="font-medium">Submitted:</span>
-                <span class="text-sm">{{ formatDate(selectedReport.submitted_at) }}</span>
-              </div>
-            </div>
+         
+        
 
             <!-- Entries Table -->
             <div class="border rounded-lg">
@@ -313,14 +314,38 @@ onMounted(() => {
                       {{ formatDate(entry.entry_date) }}
                     </TableCell>
                     <TableCell class="max-w-0 text-sm">
-                      <div class="truncate" :title="entry.ppa">
-                        {{ entry.ppa }}
-                      </div>
+                      <HoverCard>
+                        <HoverCardTrigger as-child>
+                          <div class="truncate cursor-pointer hover:text-primary">
+                            {{ entry.ppa }}
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent class="w-80" side="top">
+                          <div class="space-y-2">
+                            <h4 class="text-sm font-semibold">PPA Details</h4>
+                            <p class="text-sm break-words">
+                              {{ entry.ppa }}
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
                     </TableCell>
                     <TableCell class="max-w-0 text-sm">
-                      <div class="truncate" :title="entry.kpi">
-                        {{ entry.kpi }}
-                      </div>
+                      <HoverCard>
+                        <HoverCardTrigger as-child>
+                          <div class="truncate cursor-pointer hover:text-primary">
+                            {{ entry.kpi }}
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent class="w-80" side="top">
+                          <div class="space-y-2">
+                            <h4 class="text-sm font-semibold">KPI Details</h4>
+                            <p class="text-sm break-words">
+                              {{ entry.kpi }}
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
                     </TableCell>
                     <TableCell>
                       <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
@@ -328,9 +353,22 @@ onMounted(() => {
                       </span>
                     </TableCell>
                     <TableCell class="max-w-0 text-sm">
-                      <div class="truncate" :title="entry.remarks || ''">
-                        {{ entry.remarks || '-' }}
-                      </div>
+                      <HoverCard v-if="entry.remarks">
+                        <HoverCardTrigger as-child>
+                          <div class="truncate cursor-pointer hover:text-primary">
+                            {{ entry.remarks }}
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent class="w-80" side="top">
+                          <div class="space-y-2">
+                            <h4 class="text-sm font-semibold">Remarks</h4>
+                            <p class="text-sm break-words">
+                              {{ entry.remarks }}
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                      <div v-else class="text-muted-foreground">-</div>
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -341,6 +379,22 @@ onMounted(() => {
         </div>
       </DialogContent>
     </Dialog>
+
+    <!-- Submit Confirmation Dialog -->
+    <AlertDialog v-model:open="showSubmitConfirmDialog">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Submit Weekly Report</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to submit this weekly report? Once submitted, you will not be able to make changes to this report. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel @click="showSubmitConfirmDialog = false">Cancel</AlertDialogCancel>
+          <AlertDialogAction @click="confirmSubmit">Yes, Submit Report</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <!-- Delete Confirmation Dialog -->
     <Dialog v-model:open="showDeleteConfirmDialog">
