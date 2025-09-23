@@ -1,4 +1,5 @@
 import axios from 'axios'
+import router from '@/router'
 import type {
   Entry,
   CreateEntryData,
@@ -32,7 +33,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token')
-      window.location.href = '/login'
+      localStorage.removeItem('auth_user')
+      router.push('/login')
     }
     return Promise.reject(error)
   }

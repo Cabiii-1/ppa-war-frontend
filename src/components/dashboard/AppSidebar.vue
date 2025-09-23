@@ -2,6 +2,7 @@
 import type { SidebarProps } from "@/components/ui/sidebar"
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRoute } from 'vue-router'
 
 import {
   FileText,
@@ -27,6 +28,7 @@ const props = withDefaults(defineProps<SidebarProps>(), {
 })
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const data = computed(() => ({
   user: {
@@ -46,13 +48,13 @@ const data = computed(() => ({
       title: "Daily Entries",
       url: "/dashboard/daily-entries",
       icon: FileText,
-      isActive: true,
+      isActive: route.path === "/dashboard/daily-entries",
     },
     {
       title: "Weekly Reports",
       url: "/dashboard/weekly-reports",
       icon: Calendar,
-      isActive: false,
+      isActive: route.path === "/dashboard/weekly-reports",
     },
   ],
 

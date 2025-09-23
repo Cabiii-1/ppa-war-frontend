@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { LoginCredentials, User } from '@/stores/auth'
+import router from '@/router'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
@@ -27,7 +28,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token is invalid, clear it
       localStorage.removeItem('auth_token')
-      window.location.href = '/login'
+      localStorage.removeItem('auth_user')
+      // Use Vue Router instead of hard refresh
+      router.push('/login')
     }
     return Promise.reject(error)
   }
@@ -92,7 +95,9 @@ export const authFetch = async (url: string, options: RequestInit = {}): Promise
 
   if (response.status === 401) {
     localStorage.removeItem('auth_token')
-    window.location.href = '/login'
+    localStorage.removeItem('auth_user')
+    // Use Vue Router instead of hard refresh
+    router.push('/login')
     throw new Error('Authentication failed')
   }
 

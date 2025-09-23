@@ -1,4 +1,5 @@
 import axios from 'axios'
+import router from '@/router'
 import { useAuthStore } from '@/stores/auth'
 
 // Create axios instance for enum service
@@ -27,7 +28,7 @@ enumApi.interceptors.response.use(
     if (error.response?.status === 401) {
       const authStore = useAuthStore()
       authStore.logout()
-      window.location.href = '/login'
+      router.push('/login')
     }
     return Promise.reject(error)
   }

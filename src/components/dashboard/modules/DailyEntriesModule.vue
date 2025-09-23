@@ -43,6 +43,8 @@ const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const showConfirmDialog = ref(false)
 const showDeleteConfirmDialog = ref(false)
+const showViewDialog = ref(false)
+const selectedEntry = ref<Entry | null>(null)
 const selectedEntryDate = ref(fromDate(new Date(), getLocalTimeZone()))
 const editingEntry = ref<Entry | null>(null)
 const pendingUpdateData = ref<any>(null)
@@ -102,6 +104,33 @@ const dateRangeText = computed(() => {
     return df.format(selectedDateRange.value.start.toDate(getLocalTimeZone()))
   }
   return 'Select weekdays'
+})
+
+const currentWeekSelection = computed(() => {
+  if (!selectedDateRange.value?.start || !selectedDateRange.value?.end) {
+    return null
+  }
+
+  const startDate = selectedDateRange.value.start.toDate(getLocalTimeZone())
+  const endDate = selectedDateRange.value.end.toDate(getLocalTimeZone())
+
+  // Check if it's a weekdays selection (Mon-Fri)
+  if (isWeekdaysSelection(startDate, endDate)) {
+    const currentWeek = getWeekdayRange(new Date())
+    const lastWeek = getWeekdayRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+    const nextWeek = getWeekdayRange(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+
+    // Compare dates
+    if (startOfDay(startDate).getTime() === startOfDay(currentWeek.start).getTime()) {
+      return 'current'
+    } else if (startOfDay(startDate).getTime() === startOfDay(lastWeek.start).getTime()) {
+      return 'last'
+    } else if (startOfDay(startDate).getTime() === startOfDay(nextWeek.start).getTime()) {
+      return 'next'
+    }
+  }
+
+  return null
 })
 
 
@@ -216,6 +245,11 @@ const confirmDelete = async () => {
   } catch (error) {
     console.error('Failed to delete entry:', error)
   }
+}
+
+const viewEntry = (entry: Entry) => {
+  selectedEntry.value = entry
+  showViewDialog.value = true
 }
 
 const openEditDialog = (entry: Entry) => {
@@ -664,6 +698,62 @@ onMounted(async () => {
         </DialogContent>
       </Dialog>
 
+      <!-- View Entry Dialog -->
+      <Dialog v-model:open="showViewDialog">
+        <DialogContent class="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle v-if="selectedEntry">
+              Daily Entry: {{ formatDate(selectedEntry.entry_date) }}
+            </DialogTitle>
+          </DialogHeader>
+          <div class="flex-1 overflow-auto">
+            <div v-if="selectedEntry" class="space-y-6">
+              <!-- Entry Details -->
+              <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-2">
+                  <Label class="text-sm font-medium text-muted-foreground">Date</Label>
+                  <div class="p-3 bg-muted/50 rounded-md">
+                    {{ formatDate(selectedEntry.entry_date) }}
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <Label class="text-sm font-medium text-muted-foreground">Status</Label>
+                  <div class="p-3 bg-muted/50 rounded-md">
+                    <span :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium', getStatusColorClasses(selectedEntry.status))">
+                      {{ selectedEntry.status }}
+                    </span>
+                    <span v-if="selectedEntry.status_comment" class="ml-2 text-sm text-muted-foreground">
+                      - {{ selectedEntry.status_comment }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <Label class="text-sm font-medium text-muted-foreground">PPA (Program/Project/Activity)</Label>
+                <div class="p-3 bg-muted/50 rounded-md whitespace-pre-wrap">
+                  {{ selectedEntry.ppa }}
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <Label class="text-sm font-medium text-muted-foreground">KPI (Key Performance Indicator)</Label>
+                <div class="p-3 bg-muted/50 rounded-md whitespace-pre-wrap">
+                  {{ selectedEntry.kpi }}
+                </div>
+              </div>
+
+              <div v-if="selectedEntry.remarks" class="space-y-2">
+                <Label class="text-sm font-medium text-muted-foreground">Remarks</Label>
+                <div class="p-3 bg-muted/50 rounded-md whitespace-pre-wrap">
+                  {{ selectedEntry.remarks }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
 
     <!-- Filters and Search -->
@@ -691,34 +781,40 @@ onMounted(async () => {
           </Button>
         </PopoverTrigger>
         <PopoverContent class="w-auto p-0">
-          <div class="p-3 border-b space-y-3">
+          <div class="p-4 border-b bg-gradient-to-r from-green-50 to-emerald-50 space-y-4">
             <div class="flex items-center justify-between">
-              <span class="text-sm font-medium">Quick Selection</span>
+              <span class="text-sm font-semibold text-green-900">Quick Selection</span>
             </div>
 
             <!-- Quick weekday selection buttons -->
-            <div class="flex gap-2 flex-wrap">
+            <div class="grid grid-cols-3 gap-2">
               <Button
-                variant="outline"
+                :variant="currentWeekSelection === 'last' ? 'default' : 'outline'"
                 size="sm"
                 @click="selectLastWeekdays"
-                class="text-xs"
+                :class="currentWeekSelection === 'last'
+                  ? 'text-xs font-medium bg-green-600 hover:bg-green-700 shadow-md transform hover:scale-105 transition-all duration-200'
+                  : 'text-xs font-medium border-green-200 hover:bg-green-100 hover:border-green-300 transition-all duration-200 shadow-sm'"
               >
                 Last Week
               </Button>
               <Button
-                variant="outline"
+                :variant="currentWeekSelection === 'current' ? 'default' : 'outline'"
                 size="sm"
                 @click="selectCurrentWeekdays"
-                class="text-xs"
+                :class="currentWeekSelection === 'current'
+                  ? 'text-xs font-medium bg-green-600 hover:bg-green-700 shadow-md transform hover:scale-105 transition-all duration-200'
+                  : 'text-xs font-medium border-green-200 hover:bg-green-100 hover:border-green-300 transition-all duration-200 shadow-sm'"
               >
                 This Week
               </Button>
               <Button
-                variant="outline"
+                :variant="currentWeekSelection === 'next' ? 'default' : 'outline'"
                 size="sm"
                 @click="selectNextWeekdays"
-                class="text-xs"
+                :class="currentWeekSelection === 'next'
+                  ? 'text-xs font-medium bg-green-600 hover:bg-green-700 shadow-md transform hover:scale-105 transition-all duration-200'
+                  : 'text-xs font-medium border-green-200 hover:bg-green-100 hover:border-green-300 transition-all duration-200 shadow-sm'"
               >
                 Next Week
               </Button>
@@ -745,7 +841,7 @@ onMounted(async () => {
         :disabled="filteredEntries.length === 0"
         class="bg-green-600 hover:bg-green-700"
       >
-        Generate Weekly Report PDF
+        Save & Generate Weekly Report PDF
       </Button>
     </div>
 
@@ -797,7 +893,13 @@ onMounted(async () => {
                   No entries found
                 </TableCell>
               </TableRow>
-              <TableRow v-else v-for="entry in filteredEntries" :key="entry.id">
+              <TableRow
+                v-else
+                v-for="entry in filteredEntries"
+                :key="entry.id"
+                @click="viewEntry(entry)"
+                class="cursor-pointer hover:bg-muted/50"
+              >
                 <TableCell class="font-medium">
                   {{ formatDate(entry.entry_date) }}
                 </TableCell>
@@ -873,7 +975,7 @@ onMounted(async () => {
                   </HoverCard>
                   <span v-else class="text-muted-foreground">-</span>
                 </TableCell>
-                <TableCell>
+                <TableCell @click.stop>
                   <div class="flex items-center space-x-1">
                     <Button variant="ghost" size="sm" @click="openEditDialog(entry)">
                       <Edit class="h-3 w-3" />

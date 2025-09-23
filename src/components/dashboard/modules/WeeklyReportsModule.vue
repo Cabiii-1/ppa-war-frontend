@@ -209,9 +209,9 @@ onMounted(() => {
           <TableHeader>
             <TableRow>
               <TableHead class="w-1/3">Period</TableHead>
-              <TableHead class="w-20">Status</TableHead>
-              <TableHead class="w-16">Entries</TableHead>
               <TableHead class="w-1/6">Submitted</TableHead>
+              <TableHead class="w-16">Entries</TableHead>
+              <TableHead class="w-20">Status</TableHead>
               <TableHead class="w-1/4">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -222,13 +222,13 @@ onMounted(() => {
                   <Skeleton class="h-4 w-40" />
                 </TableCell>
                 <TableCell>
-                  <Skeleton class="h-6 w-16 rounded-md" />
+                  <Skeleton class="h-4 w-20" />
                 </TableCell>
                 <TableCell>
                   <Skeleton class="h-5 w-8 rounded-full" />
                 </TableCell>
                 <TableCell>
-                  <Skeleton class="h-4 w-20" />
+                  <Skeleton class="h-6 w-16 rounded-md" />
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center space-x-1">
@@ -255,6 +255,12 @@ onMounted(() => {
                 {{ formatDate(report.period_start) }} - {{ formatDate(report.period_end) }}
               </TableCell>
               <TableCell>
+                {{ report.submitted_at ? formatDate(report.submitted_at) : '-' }}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{{ report.entries_count || 0 }}</Badge>
+              </TableCell>
+              <TableCell>
                 <span
                   :class="[
                     'inline-flex items-center px-2 py-1 rounded-md text-xs font-medium',
@@ -267,12 +273,6 @@ onMounted(() => {
                 >
                   {{ report.status }}
                 </span>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{{ report.entries_count || 0 }}</Badge>
-              </TableCell>
-              <TableCell>
-                {{ report.submitted_at ? formatDate(report.submitted_at) : '-' }}
               </TableCell>
               <TableCell @click.stop>
                 <div class="flex items-center space-x-1">
