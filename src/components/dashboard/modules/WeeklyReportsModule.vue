@@ -10,12 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Badge } from '@/components/ui/badge'
-import { Search, Eye, Trash2, CheckCircle, MoreVertical, FileText, FileDown } from 'lucide-vue-next'
+import { Search, Trash2, CheckCircle, MoreVertical, FileText, FileDown } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PdfService } from '@/services/pdfService'
 
 const authStore = useAuthStore()
@@ -85,16 +85,6 @@ const viewReport = async (report: WeeklyReport) => {
   }
 }
 
-const updateStatus = async (reportId: number, status: WeeklyReport['status']) => {
-  try {
-    const response = await weeklyReportsService.updateWeeklyReportStatus(reportId, status)
-    if (response.success) {
-      await loadReports()
-    }
-  } catch (error) {
-    console.error('Failed to update status:', error)
-  }
-}
 
 const showSubmitConfirmation = (reportId: number) => {
   pendingSubmitId.value = reportId
