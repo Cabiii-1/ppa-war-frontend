@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { format, parseISO } from 'date-fns'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { weeklyReportsService } from '@/services/weeklyReports'
 import type { WeeklyReport } from '@/services/weeklyReports'
@@ -10,28 +11,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Badge } from '@/components/ui/badge'
-import { Search, Trash2, CheckCircle, MoreVertical, FileText, FileDown, Check, Clock, AlertCircle } from 'lucide-vue-next'
+import { Search, CheckCircle, FileText, FileDown, Check, Clock, AlertCircle } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PdfService } from '@/services/pdfService'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 // State
 const reports = ref<WeeklyReport[]>([])
 const loading = ref(false)
 const searchQuery = ref('')
-const showViewDialog = ref(false)
-const showDeleteConfirmDialog = ref(false)
 const showSubmitConfirmDialog = ref(false)
-const selectedReport = ref<WeeklyReport | null>(null)
-const reportEntries = ref<any[]>([])
 const pdfLoading = ref(false)
-const pendingDeleteId = ref<number | null>(null)
 const pendingSubmitId = ref<number | null>(null)
 
 // Computed
@@ -73,17 +68,15 @@ const loadReports = async () => {
   }
 }
 
-const viewReport = async (report: WeeklyReport) => {
-  try {
-    selectedReport.value = report
-    const response = await weeklyReportsService.getWeeklyReport(report.id)
-    if (response.success) {
-      reportEntries.value = (response.data as any)?.entries || []
-      showViewDialog.value = true
+const navigateToDailyEntries = (report: WeeklyReport) => {
+  // Navigate to daily entries with the report's date range
+  router.push({
+    name: 'DailyEntries',
+    query: {
+      start_date: report.period_start,
+      end_date: report.period_end
     }
-  } catch (error) {
-    console.error('Failed to load report details:', error)
-  }
+  })
 }
 
 
@@ -107,25 +100,6 @@ const confirmSubmit = async () => {
   }
 }
 
-const deleteReport = (id: number) => {
-  pendingDeleteId.value = id
-  showDeleteConfirmDialog.value = true
-}
-
-const confirmDelete = async () => {
-  if (pendingDeleteId.value === null) return
-
-  try {
-    const response = await weeklyReportsService.deleteWeeklyReport(pendingDeleteId.value)
-    if (response.success) {
-      showDeleteConfirmDialog.value = false
-      pendingDeleteId.value = null
-      await loadReports()
-    }
-  } catch (error) {
-    console.error('Failed to delete report:', error)
-  }
-}
 
 const formatDate = (dateString: string) => {
   return format(parseISO(dateString), 'MMM dd, yyyy')
@@ -257,7 +231,7 @@ onMounted(() => {
               v-else
               v-for="(report, index) in filteredReports"
               :key="report.id"
-              @click="viewReport(report)"
+              @click="navigateToDailyEntries(report)"
               :class="cn(
                 'cursor-pointer hover:bg-muted/50 h-12 border-b border-border',
                 index % 2 === 1 ? 'bg-muted/25' : 'bg-background'
@@ -305,21 +279,12 @@ onMounted(() => {
                     {{ report.status === 'draft' ? 'Submit' : 'Submitted' }}
                   </Button>
 
-                  <Button
-                    @click="deleteReport(report.id)"
-                    variant="ghost"
-                    size="sm"
-                    class="text-destructive w-16 justify-start hover:text-destructive hover:bg-transparent"
-                  >
-                    <Trash2 class="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                      <Button variant="ghost" size="sm" class="w-8 h-8 p-0 ml-2">
-                        <MoreVertical class="h-4 w-4" />
-                        <span class="sr-only">Open menu</span>
+                      <Button variant="ghost" size="sm" class="flex items-center gap-1 px-3 py-1 h-8 ml-2">
+                        <FileText class="h-4 w-4" />
+                        <span class="text-xs">PDF</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -343,111 +308,6 @@ onMounted(() => {
       </CardContent>
     </Card>
 
-    <!-- View Report Dialog -->
-    <Dialog v-model:open="showViewDialog">
-      <DialogContent class="sm:max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle v-if="selectedReport">
-            Weekly Report: {{ formatDate(selectedReport.period_start) }} - {{ formatDate(selectedReport.period_end) }}
-          </DialogTitle>
-        </DialogHeader>
-        <div class="flex-1 overflow-auto">
-          <div v-if="selectedReport" class="space-y-4">
-         
-        
-
-            <!-- Entries Table -->
-            <div class="border rounded-lg">
-              <div class="overflow-x-auto">
-                <Table class="w-full">
-                <TableHeader>
-                  <TableRow class="h-12 border-b-2 border-border">
-                    <TableHead class="w-24 text-base font-semibold text-left">Date</TableHead>
-                    <TableHead class="w-1/3 text-base font-semibold text-left">Project/Activity</TableHead>
-                    <TableHead class="w-1/3 text-base font-semibold text-left">Key Results</TableHead>
-                    <TableHead class="w-20 text-base font-semibold text-left">Status</TableHead>
-                    <TableHead class="w-1/6 text-base font-semibold text-left">Remarks</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow v-if="reportEntries.length === 0">
-                    <TableCell colspan="5" class="text-center py-4 text-muted-foreground">
-                      No entries found
-                    </TableCell>
-                  </TableRow>
-                  <TableRow v-else v-for="(entry, index) in reportEntries" :key="entry.id" :class="cn(
-                    'h-12 border-b border-border',
-                    index % 2 === 1 ? 'bg-muted/25' : 'bg-background'
-                  )">
-                    <TableCell class="font-medium text-base py-2 px-3">
-                      {{ formatDate(entry.entry_date) }}
-                    </TableCell>
-                    <TableCell class="max-w-0 text-base py-2 px-3">
-                      <HoverCard>
-                        <HoverCardTrigger as-child>
-                          <div class="truncate cursor-pointer hover:text-primary">
-                            {{ entry.ppa }}
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent class="w-80" side="top">
-                          <div class="space-y-2">
-                            <h4 class="text-sm font-semibold">Project/Activity Details</h4>
-                            <p class="text-sm break-words">
-                              {{ entry.ppa }}
-                            </p>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </TableCell>
-                    <TableCell class="max-w-0 text-base py-2 px-3">
-                      <HoverCard>
-                        <HoverCardTrigger as-child>
-                          <div class="truncate cursor-pointer hover:text-primary">
-                            {{ entry.kpi }}
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent class="w-80" side="top">
-                          <div class="space-y-2">
-                            <h4 class="text-sm font-semibold">Key Results Details</h4>
-                            <p class="text-sm break-words">
-                              {{ entry.kpi }}
-                            </p>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </TableCell>
-                    <TableCell class="py-2 px-3">
-                      <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                        {{ entry.status }}
-                      </span>
-                    </TableCell>
-                    <TableCell class="max-w-0 text-base py-2 px-3">
-                      <HoverCard v-if="entry.remarks">
-                        <HoverCardTrigger as-child>
-                          <div class="truncate cursor-pointer hover:text-primary">
-                            {{ entry.remarks }}
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent class="w-80" side="top">
-                          <div class="space-y-2">
-                            <h4 class="text-sm font-semibold">Remarks</h4>
-                            <p class="text-sm break-words">
-                              {{ entry.remarks }}
-                            </p>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                      <div v-else class="text-muted-foreground">-</div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
 
     <!-- Submit Confirmation Dialog -->
     <AlertDialog v-model:open="showSubmitConfirmDialog">
@@ -465,27 +325,6 @@ onMounted(() => {
       </AlertDialogContent>
     </AlertDialog>
 
-    <!-- Delete Confirmation Dialog -->
-    <Dialog v-model:open="showDeleteConfirmDialog">
-      <DialogContent class="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Confirm Delete</DialogTitle>
-        </DialogHeader>
-        <div class="py-4">
-          <p class="text-sm text-muted-foreground">
-            Are you sure you want to delete this weekly report? This will also unlink all associated entries. This action cannot be undone.
-          </p>
-        </div>
-        <div class="flex justify-end space-x-2">
-          <Button type="button" variant="outline" @click="showDeleteConfirmDialog = false">
-            Cancel
-          </Button>
-          <Button type="button" variant="destructive" @click="confirmDelete">
-            Yes, Delete
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   </div>
 </template>
 

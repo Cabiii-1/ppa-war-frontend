@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { format, parseISO, startOfWeek, startOfDay, endOfDay } from 'date-fns'
 import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate } from '@internationalized/date'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
 import { weeklyReportsService } from '@/services/weeklyReports'
@@ -26,6 +27,7 @@ import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2, Check, Clock, Ale
 import { Skeleton } from '@/components/ui/skeleton'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 // Date formatter
 const df = new DateFormatter('en-US', {
@@ -146,6 +148,16 @@ const formattedSelectedEntryDate = computed(() => {
   return `${dayName}, ${formattedDate}`
 })
 
+// Helper function to check if an entry belongs to a submitted weekly report
+const isEntryFromSubmittedReport = (entry: Entry) => {
+  return entry.weekly_report?.status === 'submitted'
+}
+
+// Check if any entries in current view are from submitted reports
+const hasSubmittedEntries = computed(() => {
+  return filteredEntries.value.some(entry => isEntryFromSubmittedReport(entry))
+})
+
 
 // Helper function to check if selection is weekdays only (Mon-Fri)
 const isWeekdaysSelection = (start: Date, end: Date) => {
@@ -175,8 +187,29 @@ const getCurrentWeekdayRange = () => {
   }
 }
 
-// Set initial date range to current weekdays
+// Set initial date range to current weekdays (will be overridden by query params if present)
 selectedDateRange.value = getCurrentWeekdayRange()
+
+// Helper function to set date range from query parameters
+const setDateRangeFromQuery = () => {
+  const startDate = route.query.start_date as string
+  const endDate = route.query.end_date as string
+
+  if (startDate && endDate) {
+    try {
+      const start = parseISO(startDate)
+      const end = parseISO(endDate)
+
+      selectedDateRange.value = {
+        start: new CalendarDate(start.getFullYear(), start.getMonth() + 1, start.getDate()),
+        end: new CalendarDate(end.getFullYear(), end.getMonth() + 1, end.getDate())
+      }
+    } catch (error) {
+      console.error('Invalid date format in query parameters:', error)
+      // Keep default date range if query parameters are invalid
+    }
+  }
+}
 
 // Methods
 const loadStatusOptions = async () => {
@@ -407,6 +440,13 @@ const saveToWeeklyReport = async () => {
     return
   }
 
+  // Check if any entries are from submitted reports
+  const submittedEntries = filteredEntries.value.filter(entry => isEntryFromSubmittedReport(entry))
+  if (submittedEntries.length > 0) {
+    alert('Cannot modify weekly reports. Some entries in the current selection are already part of submitted weekly reports.')
+    return
+  }
+
   if (savingToWeeklyReport.value) {
     return // Prevent multiple clicks
   }
@@ -496,10 +536,19 @@ const confirmSaveToWeeklyReport = async () => {
 
 // Lifecycle
 onMounted(async () => {
+  // Check for query parameters first
+  setDateRangeFromQuery()
+
   await loadStatusOptions()
   initializeNewEntry()
   loadEntries()
 })
+
+// Watch for query parameter changes
+watch(() => route.query, () => {
+  setDateRangeFromQuery()
+  loadEntries()
+}, { deep: true })
 </script>
 
 <template>
@@ -513,7 +562,16 @@ onMounted(async () => {
 
       <Dialog v-model:open="showAddDialog">
         <DialogTrigger as-child>
-          <Button class="px-6 py-3 text-base font-medium">
+          <Button
+            class="px-6 py-3 text-base font-medium"
+            :class="hasSubmittedEntries
+              ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
+              : ''"
+            :disabled="hasSubmittedEntries"
+            :title="hasSubmittedEntries
+              ? 'Cannot add entries when viewing date range with submitted reports'
+              : 'Add New Accomplishment'"
+          >
             <Plus class="h-4 w-4 mr-2" />
             Add New Accomplishment
           </Button>
@@ -940,18 +998,23 @@ onMounted(async () => {
 
 
       <div class="flex items-center space-x-4">
-        <div class="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-md">
-          <span class="font-medium">{{ filteredEntries.length }}</span> entries{{ filteredEntries.length !== 1 ? 's' : '' }} this week
-        </div>
-
         <Button
           @click="saveToWeeklyReport"
-          :disabled="filteredEntries.length === 0 || savingToWeeklyReport"
-          class="bg-green-600 hover:bg-green-700"
+          :disabled="filteredEntries.length === 0 || savingToWeeklyReport || hasSubmittedEntries"
+          :class="hasSubmittedEntries
+            ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
+            : 'bg-green-600 hover:bg-green-700'"
+          :title="hasSubmittedEntries
+            ? 'Cannot modify weekly reports containing entries from submitted reports'
+            : 'Save entries to weekly report'"
         >
           <Loader2 v-if="savingToWeeklyReport" class="h-4 w-4 mr-2 animate-spin" />
           {{ savingToWeeklyReport ? 'Processing...' : 'Save & Generate Weekly Report PDF' }}
         </Button>
+
+        <div v-if="hasSubmittedEntries" class="text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+          📋 This report has already been submitted
+        </div>
       </div>
     </div>
 
@@ -1014,7 +1077,8 @@ onMounted(async () => {
                 @click="viewEntry(entry)"
                 :class="cn(
                   'cursor-pointer hover:bg-muted/50 h-12 border-b border-border',
-                  index % 2 === 1 ? 'bg-muted/25' : 'bg-background'
+                  index % 2 === 1 ? 'bg-muted/25' : 'bg-background',
+                  isEntryFromSubmittedReport(entry) ? 'bg-gray-50/50 dark:bg-gray-900/20' : ''
                 )"
               >
                 <TableCell class="font-medium text-base py-2 px-3">
@@ -1096,11 +1160,35 @@ onMounted(async () => {
                 </TableCell>
                 <TableCell @click.stop class="py-2 px-3">
                   <div class="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" class="h-8 px-2 hover:bg-accent" @click="openEditDialog(entry)">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class="h-8 px-2"
+                      :class="isEntryFromSubmittedReport(entry)
+                        ? 'opacity-50 cursor-not-allowed text-muted-foreground'
+                        : 'hover:bg-accent'"
+                      :disabled="isEntryFromSubmittedReport(entry)"
+                      @click="openEditDialog(entry)"
+                      :title="isEntryFromSubmittedReport(entry)
+                        ? 'Cannot edit entries from submitted weekly reports'
+                        : 'Edit entry'"
+                    >
                       <Edit class="h-4 w-4 mr-1" />
                       <span class="text-xs">Edit</span>
                     </Button>
-                    <Button variant="ghost" size="sm" class="h-8 px-2 hover:bg-destructive/10 text-destructive hover:text-destructive" @click="deleteEntry(entry.id)">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class="h-8 px-2"
+                      :class="isEntryFromSubmittedReport(entry)
+                        ? 'opacity-50 cursor-not-allowed text-muted-foreground'
+                        : 'hover:bg-destructive/10 text-destructive hover:text-destructive'"
+                      :disabled="isEntryFromSubmittedReport(entry)"
+                      @click="deleteEntry(entry.id)"
+                      :title="isEntryFromSubmittedReport(entry)
+                        ? 'Cannot delete entries from submitted weekly reports'
+                        : 'Delete entry'"
+                    >
                       <Trash2 class="h-4 w-4 mr-1" />
                       <span class="text-xs">Delete</span>
                     </Button>

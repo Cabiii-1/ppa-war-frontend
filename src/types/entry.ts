@@ -18,6 +18,7 @@ export interface WeeklyReport {
   title: string
   start_date: string
   end_date: string
+  status: 'draft' | 'submitted'
   created_at: string
   updated_at: string
 }
