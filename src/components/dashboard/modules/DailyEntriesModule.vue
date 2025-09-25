@@ -221,8 +221,8 @@ const loadStatusOptions = async () => {
     }
   } catch (error) {
     console.error('Failed to load status options:', error)
-    // Fallback to hardcoded values if API fails
-    statusOptions.value = ['Accomplished', 'In Progress', 'Delayed', 'Others']
+    // Show error message instead of fallback values
+    statusOptions.value = []
   } finally {
     loadingStatusOptions.value = false
   }
@@ -352,7 +352,7 @@ const resetForm = () => {
     entry_date: format(new Date(), 'yyyy-MM-dd'),
     ppa: '',
     kpi: '',
-    status: 'In Progress',
+    status: statusOptions.value.length > 0 ? statusOptions.value[0] : '',
     status_comment: '',
     remarks: ''
   })
@@ -363,38 +363,85 @@ const formatDate = (dateString: string) => {
 }
 
 const getStatusColorClasses = (status: string) => {
-  switch (status) {
-    case 'Accomplished':
-      return 'bg-green-100 text-green-900 border border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
-    case 'In Progress':
-      return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
-    case 'Delayed':
-      return 'bg-red-100 text-red-900 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
-    case 'Others':
-      return 'bg-gray-100 text-gray-900 border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-    default:
-      return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' // fallback
+  // Dynamic color assignment based on status keywords
+  const lowerStatus = status.toLowerCase()
+
+  // Completed/Success states
+  if (lowerStatus.includes('completed') || lowerStatus.includes('accomplished') || lowerStatus.includes('done') || lowerStatus.includes('finished')) {
+    return 'bg-green-100 text-green-900 border border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
   }
+
+  // In Progress/Active states
+  if (lowerStatus.includes('progress') || lowerStatus.includes('active') || lowerStatus.includes('working')) {
+    return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
+  }
+
+  // On Hold/Paused states
+  if (lowerStatus.includes('hold') || lowerStatus.includes('paused') || lowerStatus.includes('waiting')) {
+    return 'bg-yellow-100 text-yellow-900 border border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800'
+  }
+
+  // Cancelled/Stopped states
+  if (lowerStatus.includes('cancelled') || lowerStatus.includes('canceled') || lowerStatus.includes('stopped')) {
+    return 'bg-red-100 text-red-900 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
+  }
+
+  // At Risk/Warning states
+  if (lowerStatus.includes('risk') || lowerStatus.includes('warning') || lowerStatus.includes('delayed')) {
+    return 'bg-orange-100 text-orange-900 border border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800'
+  }
+
+  // Testing/Review states
+  if (lowerStatus.includes('testing') || lowerStatus.includes('review') || lowerStatus.includes('reviewing')) {
+    return 'bg-purple-100 text-purple-900 border border-purple-300 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800'
+  }
+
+  // Closed/Archived states
+  if (lowerStatus.includes('closed') || lowerStatus.includes('archived')) {
+    return 'bg-gray-100 text-gray-900 border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+  }
+
+  // Not Started/Initial states
+  if (lowerStatus.includes('not started') || lowerStatus.includes('pending') || lowerStatus.includes('new')) {
+    return 'bg-gray-100 text-gray-900 border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+  }
+
+  // Default fallback for any unrecognized status
+  return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
 }
 
 const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'Accomplished':
-      return Check
-    case 'In Progress':
-      return Clock
-    case 'Delayed':
-      return AlertTriangle
-    case 'Planning':
-      return ClipboardList
-    default:
-      return null
+  // Dynamic icon assignment based on status keywords
+  const lowerStatus = status.toLowerCase()
+
+  // Completed/Success states
+  if (lowerStatus.includes('completed') || lowerStatus.includes('accomplished') || lowerStatus.includes('done') || lowerStatus.includes('finished') || lowerStatus.includes('closed')) {
+    return Check
   }
+
+  // In Progress/Active states
+  if (lowerStatus.includes('progress') || lowerStatus.includes('active') || lowerStatus.includes('working')) {
+    return Clock
+  }
+
+  // Warning/Risk/Problem states
+  if (lowerStatus.includes('risk') || lowerStatus.includes('delayed') || lowerStatus.includes('warning') || lowerStatus.includes('cancelled') || lowerStatus.includes('canceled') || lowerStatus.includes('hold')) {
+    return AlertTriangle
+  }
+
+  // Planning/Review/Testing states
+  if (lowerStatus.includes('testing') || lowerStatus.includes('review') || lowerStatus.includes('not started') || lowerStatus.includes('planning')) {
+    return ClipboardList
+  }
+
+  // Default: no icon for unrecognized statuses
+  return null
 }
 
-// Set default status to "In Progress" when component mounts
+// Set default status dynamically based on available options
 const initializeNewEntry = () => {
-  newEntry.status = 'In Progress'
+  // Set to first available status option, or empty if none loaded yet
+  newEntry.status = statusOptions.value.length > 0 ? statusOptions.value[0] : ''
 }
 
 const handleDateRangeSelect = (range: any) => {
