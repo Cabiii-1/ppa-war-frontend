@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns'
 import { useAuthStore } from '@/stores/auth'
 import { weeklyReportsService } from '@/services/weeklyReports'
 import type { WeeklyReport } from '@/services/weeklyReports'
+import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Badge } from '@/components/ui/badge'
-import { Search, Trash2, CheckCircle, MoreVertical, FileText, FileDown } from 'lucide-vue-next'
+import { Search, Trash2, CheckCircle, MoreVertical, FileText, FileDown, Check, Clock, AlertCircle } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PdfService } from '@/services/pdfService'
@@ -130,6 +131,19 @@ const formatDate = (dateString: string) => {
   return format(parseISO(dateString), 'MMM dd, yyyy')
 }
 
+const getStatusIcon = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'submitted':
+      return Check
+    case 'draft':
+      return Clock
+    case 'processing':
+      return AlertCircle
+    default:
+      return null
+  }
+}
+
 const downloadPdf = async (report: WeeklyReport) => {
   if (pdfLoading.value) return
 
@@ -175,7 +189,8 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <p class="text-muted-foreground">View and manage your weekly accomplishment reports</p>
+        <h1 class="text-lg font-semibold mb-1">Weekly Accomplishment Reports</h1>
+        <p class="text-base leading-relaxed text-muted-foreground">View and manage your weekly accomplishment reports</p>
       </div>
     </div>
 
@@ -195,14 +210,14 @@ onMounted(() => {
     <Card>
       <CardContent class="p-0">
         <div class="overflow-x-auto">
-          <Table class="w-full">
+          <Table class="w-full min-w-[800px]">
           <TableHeader>
-            <TableRow>
-              <TableHead class="w-1/3">Period</TableHead>
-              <TableHead class="w-1/6">Submitted</TableHead>
-              <TableHead class="w-16">Entries</TableHead>
-              <TableHead class="w-20">Status</TableHead>
-              <TableHead class="w-1/4">Actions</TableHead>
+            <TableRow class="h-12 border-b-2 border-border">
+              <TableHead class="w-1/3 text-base font-semibold text-left">Period</TableHead>
+              <TableHead class="w-1/6 text-base font-semibold text-left">Submitted</TableHead>
+              <TableHead class="w-16 text-base font-semibold text-left">Entries</TableHead>
+              <TableHead class="w-20 text-base font-semibold text-left">Status</TableHead>
+              <TableHead class="w-1/4 text-base font-semibold text-left">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -230,42 +245,50 @@ onMounted(() => {
               </TableRow>
             </template>
             <TableRow v-else-if="filteredReports.length === 0">
-              <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
-                No weekly reports found
+              <TableCell colspan="5" class="text-center py-12 text-muted-foreground">
+                <div class="flex flex-col items-center space-y-3">
+                  <div class="text-4xl">📊</div>
+                  <div class="text-base font-medium">No weekly reports found</div>
+                  <div class="text-sm text-muted-foreground/70">Create your first report by adding entries in Daily Entries and saving them as a weekly report</div>
+                </div>
               </TableCell>
             </TableRow>
             <TableRow
               v-else
-              v-for="report in filteredReports"
+              v-for="(report, index) in filteredReports"
               :key="report.id"
               @click="viewReport(report)"
-              class="cursor-pointer hover:bg-muted/50"
+              :class="cn(
+                'cursor-pointer hover:bg-muted/50 h-12 border-b border-border',
+                index % 2 === 1 ? 'bg-muted/25' : 'bg-background'
+              )"
             >
-              <TableCell class="font-medium">
+              <TableCell class="font-medium text-base py-2 px-3">
                 {{ formatDate(report.period_start) }} - {{ formatDate(report.period_end) }}
               </TableCell>
-              <TableCell>
+              <TableCell class="text-base py-2 px-3">
                 {{ report.submitted_at ? formatDate(report.submitted_at) : '-' }}
               </TableCell>
-              <TableCell>
+              <TableCell class="py-2 px-3">
                 <Badge variant="outline">{{ report.entries_count || 0 }}</Badge>
               </TableCell>
-              <TableCell>
+              <TableCell class="py-2 px-3">
                 <span
                   :class="[
-                    'inline-flex items-center px-2 py-1 rounded-md text-xs font-medium',
+                    'inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium border',
                     report.status === 'draft'
-                      ? 'bg-yellow-100 text-yellow-800'
+                      ? 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800'
                       : report.status === 'submitted'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-blue-100 text-blue-800'
+                      ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+                      : 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
                   ]"
                 >
+                  <component v-if="getStatusIcon(report.status)" :is="getStatusIcon(report.status)" class="h-3 w-3" />
                   {{ report.status }}
                 </span>
               </TableCell>
-              <TableCell @click.stop>
-                <div class="flex items-center space-x-1">
+              <TableCell @click.stop class="py-2 px-3">
+                <div class="flex items-center gap-2">
                   <Button
                     @click="report.status === 'draft' ? showSubmitConfirmation(report.id) : undefined"
                     variant="ghost"
@@ -273,7 +296,7 @@ onMounted(() => {
                     :class="[
                       'w-24 justify-start',
                       report.status === 'draft'
-                        ? 'text-green-600 hover:text-green-700'
+                        ? 'text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/10'
                         : 'text-green-500 cursor-default'
                     ]"
                     :disabled="report.status !== 'draft'"
@@ -286,7 +309,7 @@ onMounted(() => {
                     @click="deleteReport(report.id)"
                     variant="ghost"
                     size="sm"
-                    class="text-red-600 hover:text-red-700 w-16 justify-start"
+                    class="text-destructive w-16 justify-start hover:text-destructive hover:bg-transparent"
                   >
                     <Trash2 class="h-4 w-4 mr-1" />
                     Delete
@@ -294,7 +317,7 @@ onMounted(() => {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                      <Button variant="ghost" size="sm" class="w-8 h-8 p-0">
+                      <Button variant="ghost" size="sm" class="w-8 h-8 p-0 ml-2">
                         <MoreVertical class="h-4 w-4" />
                         <span class="sr-only">Open menu</span>
                       </Button>
@@ -338,12 +361,12 @@ onMounted(() => {
               <div class="overflow-x-auto">
                 <Table class="w-full">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead class="w-24">Date</TableHead>
-                    <TableHead class="w-1/3">PPA</TableHead>
-                    <TableHead class="w-1/3">KPI</TableHead>
-                    <TableHead class="w-20">Status</TableHead>
-                    <TableHead class="w-1/6">Remarks</TableHead>
+                  <TableRow class="h-12 border-b-2 border-border">
+                    <TableHead class="w-24 text-base font-semibold text-left">Date</TableHead>
+                    <TableHead class="w-1/3 text-base font-semibold text-left">Project/Activity</TableHead>
+                    <TableHead class="w-1/3 text-base font-semibold text-left">Key Results</TableHead>
+                    <TableHead class="w-20 text-base font-semibold text-left">Status</TableHead>
+                    <TableHead class="w-1/6 text-base font-semibold text-left">Remarks</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -352,11 +375,14 @@ onMounted(() => {
                       No entries found
                     </TableCell>
                   </TableRow>
-                  <TableRow v-else v-for="entry in reportEntries" :key="entry.id">
-                    <TableCell class="font-medium">
+                  <TableRow v-else v-for="(entry, index) in reportEntries" :key="entry.id" :class="cn(
+                    'h-12 border-b border-border',
+                    index % 2 === 1 ? 'bg-muted/25' : 'bg-background'
+                  )">
+                    <TableCell class="font-medium text-base py-2 px-3">
                       {{ formatDate(entry.entry_date) }}
                     </TableCell>
-                    <TableCell class="max-w-0 text-sm">
+                    <TableCell class="max-w-0 text-base py-2 px-3">
                       <HoverCard>
                         <HoverCardTrigger as-child>
                           <div class="truncate cursor-pointer hover:text-primary">
@@ -365,7 +391,7 @@ onMounted(() => {
                         </HoverCardTrigger>
                         <HoverCardContent class="w-80" side="top">
                           <div class="space-y-2">
-                            <h4 class="text-sm font-semibold">PPA Details</h4>
+                            <h4 class="text-sm font-semibold">Project/Activity Details</h4>
                             <p class="text-sm break-words">
                               {{ entry.ppa }}
                             </p>
@@ -373,7 +399,7 @@ onMounted(() => {
                         </HoverCardContent>
                       </HoverCard>
                     </TableCell>
-                    <TableCell class="max-w-0 text-sm">
+                    <TableCell class="max-w-0 text-base py-2 px-3">
                       <HoverCard>
                         <HoverCardTrigger as-child>
                           <div class="truncate cursor-pointer hover:text-primary">
@@ -382,7 +408,7 @@ onMounted(() => {
                         </HoverCardTrigger>
                         <HoverCardContent class="w-80" side="top">
                           <div class="space-y-2">
-                            <h4 class="text-sm font-semibold">KPI Details</h4>
+                            <h4 class="text-sm font-semibold">Key Results Details</h4>
                             <p class="text-sm break-words">
                               {{ entry.kpi }}
                             </p>
@@ -390,12 +416,12 @@ onMounted(() => {
                         </HoverCardContent>
                       </HoverCard>
                     </TableCell>
-                    <TableCell>
-                      <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                    <TableCell class="py-2 px-3">
+                      <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
                         {{ entry.status }}
                       </span>
                     </TableCell>
-                    <TableCell class="max-w-0 text-sm">
+                    <TableCell class="max-w-0 text-base py-2 px-3">
                       <HoverCard v-if="entry.remarks">
                         <HoverCardTrigger as-child>
                           <div class="truncate cursor-pointer hover:text-primary">

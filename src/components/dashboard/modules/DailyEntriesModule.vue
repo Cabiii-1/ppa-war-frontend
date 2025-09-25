@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2 } from 'lucide-vue-next'
+import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2, Check, Clock, AlertTriangle, ClipboardList, Loader2, FileText } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const authStore = useAuthStore()
@@ -49,6 +49,7 @@ const selectedEntryDate = ref(fromDate(new Date(), getLocalTimeZone()))
 const editingEntry = ref<Entry | null>(null)
 const pendingUpdateData = ref<any>(null)
 const pendingDeleteId = ref<number | null>(null)
+const savingToWeeklyReport = ref(false)
 const selectedDateRange = ref({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
@@ -96,7 +97,11 @@ const dateRangeText = computed(() => {
 
       // Check if it's a weekdays selection (Mon-Fri)
       if (isWeekdaysSelection(startDate, endDate)) {
-        return `Weekdays of ${df.format(startDate)}`
+        const startMonth = startDate.toLocaleString('en-US', { month: 'long' })
+        const startDay = startDate.getDate()
+        const endDay = endDate.getDate()
+        const year = startDate.getFullYear()
+        return `Week of ${startMonth} ${startDay}-${endDay}, ${year}`
       }
 
       return `${df.format(startDate)} - ${df.format(endDate)}`
@@ -131,6 +136,14 @@ const currentWeekSelection = computed(() => {
   }
 
   return null
+})
+
+const formattedSelectedEntryDate = computed(() => {
+  if (!selectedEntry.value?.entry_date) return ''
+  const date = parseISO(selectedEntry.value.entry_date)
+  const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
+  const formattedDate = format(date, 'MMMM dd, yyyy')
+  return `${dayName}, ${formattedDate}`
 })
 
 
@@ -306,7 +319,7 @@ const resetForm = () => {
     entry_date: format(new Date(), 'yyyy-MM-dd'),
     ppa: '',
     kpi: '',
-    status: '',
+    status: 'In Progress',
     status_comment: '',
     remarks: ''
   })
@@ -319,16 +332,36 @@ const formatDate = (dateString: string) => {
 const getStatusColorClasses = (status: string) => {
   switch (status) {
     case 'Accomplished':
-      return 'bg-green-100 text-green-800'
+      return 'bg-green-100 text-green-900 border border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
     case 'In Progress':
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
     case 'Delayed':
-      return 'bg-red-100 text-red-800'
+      return 'bg-red-100 text-red-900 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
     case 'Others':
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-100 text-gray-900 border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
     default:
-      return 'bg-blue-100 text-blue-800' // fallback
+      return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' // fallback
   }
+}
+
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'Accomplished':
+      return Check
+    case 'In Progress':
+      return Clock
+    case 'Delayed':
+      return AlertTriangle
+    case 'Planning':
+      return ClipboardList
+    default:
+      return null
+  }
+}
+
+// Set default status to "In Progress" when component mounts
+const initializeNewEntry = () => {
+  newEntry.status = 'In Progress'
 }
 
 const handleDateRangeSelect = (range: any) => {
@@ -373,7 +406,17 @@ const saveToWeeklyReport = async () => {
     alert('No entries found in the current date range to save to weekly report.')
     return
   }
-  await confirmSaveToWeeklyReport()
+
+  if (savingToWeeklyReport.value) {
+    return // Prevent multiple clicks
+  }
+
+  savingToWeeklyReport.value = true
+  try {
+    await confirmSaveToWeeklyReport()
+  } finally {
+    savingToWeeklyReport.value = false
+  }
 }
 
 const confirmSaveToWeeklyReport = async () => {
@@ -454,6 +497,7 @@ const confirmSaveToWeeklyReport = async () => {
 // Lifecycle
 onMounted(async () => {
   await loadStatusOptions()
+  initializeNewEntry()
   loadEntries()
 })
 </script>
@@ -463,108 +507,132 @@ onMounted(async () => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <p class="text-muted-foreground">Manage your daily accomplishment reports</p>
+        <h1 class="text-lg font-semibold mb-1">Weekly Entries</h1>
+        <p class="text-base leading-relaxed text-muted-foreground">Track your weekly accomplishments by adding entries below</p>
       </div>
 
       <Dialog v-model:open="showAddDialog">
         <DialogTrigger as-child>
-          <Button>
+          <Button class="px-6 py-3 text-base font-medium">
             <Plus class="h-4 w-4 mr-2" />
-            Add Entry
+            Add New Accomplishment
           </Button>
         </DialogTrigger>
-        <DialogContent class="sm:max-w-[525px]">
+        <DialogContent class="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Add New Entry</DialogTitle>
+            <DialogTitle>Add New Accomplishment</DialogTitle>
           </DialogHeader>
-          <form @submit.prevent="addEntry" class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <Label for="entry_date">Date</Label>
-                <Popover>
-                  <PopoverTrigger as-child>
-                    <Button
-                      variant="outline"
-                      :class="cn(
-                        'w-full justify-start text-left font-normal',
-                        !selectedEntryDate && 'text-muted-foreground'
-                      )"
-                    >
-                      <CalendarIcon class="mr-2 h-4 w-4" />
-                      {{ selectedEntryDate ? df.format(selectedEntryDate.toDate()) : 'Select date' }}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent class="w-auto p-0">
-                    <Calendar
-                      v-model="selectedEntryDate as any"
-                      initial-focus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div class="space-y-2">
-                <Label for="remarks">Remarks (Optional)</Label>
-                <Textarea
-                  id="remarks"
-                  v-model="newEntry.remarks"
-                  placeholder="Additional notes or comments"
-                  class="min-h-[40px]"
-                />
-              </div>
+          <form @submit.prevent="addEntry" class="space-y-6">
+            <!-- Date Field -->
+            <div class="space-y-3">
+              <Label for="entry_date" class="text-base font-semibold">Date *</Label>
+              <Popover>
+                <PopoverTrigger as-child>
+                  <Button
+                    variant="outline"
+                    :class="cn(
+                      'w-full justify-start text-left font-normal h-12 px-4 text-base',
+                      !selectedEntryDate && 'text-muted-foreground'
+                    )"
+                  >
+                    <CalendarIcon class="mr-3 h-5 w-5" />
+                    {{ selectedEntryDate ? df.format(selectedEntryDate.toDate()) : 'Select date' }}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0">
+                  <Calendar
+                    v-model="selectedEntryDate as any"
+                    initial-focus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
-            <div class="space-y-2">
-              <Label for="ppa">PPA (Program/Project/Activity)</Label>
+            <!-- Project/Activity Field -->
+            <div class="space-y-3">
+              <Label for="ppa" class="text-base font-semibold">Program/Project/Activity *</Label>
               <Textarea
                 id="ppa"
                 v-model="newEntry.ppa"
-                placeholder="Describe the program, project, or activity"
+                placeholder="e.g., Client meeting, Training session"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
                 required
               />
             </div>
 
-            <div class="space-y-2">
-              <Label for="kpi">KPI (Key Performance Indicator)</Label>
+            <!-- Key Results Field -->
+            <div class="space-y-3">
+              <Label for="kpi" class="text-base font-semibold">KPI(Key Performance Indicator)*</Label>
               <Textarea
                 id="kpi"
                 v-model="newEntry.kpi"
-                placeholder="Describe the key performance indicators"
+                placeholder="e.g., Completed 3 projects, Signed new contract worth etc.."
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
                 required
               />
             </div>
 
-            <div class="space-y-2">
-              <Label for="status">Status</Label>
-              <div class="grid grid-cols-3 gap-2">
-                <Select v-model="newEntry.status" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="option in statusOptions"
-                      :key="option"
-                      :value="option"
-                    >
-                      {{ option }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-               <Input
-                  id="edit_status_comment"
-                  v-model="newEntry.status_comment"
-                  placeholder="Comment (optional)"
-                  class="text-sm col-span-2"
-                />
+            <!-- Status Section -->
+            <div class="space-y-3">
+              <Label for="status" class="text-base font-semibold">Status *</Label>
+              <div class="flex gap-3">
+                <div class="flex-1 max-w-[35%]">
+                  <Select v-model="newEntry.status" required>
+                    <SelectTrigger class="h-12 px-4 text-base">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="option in statusOptions"
+                        :key="option"
+                        :value="option"
+                        class="flex items-center gap-2 py-3 text-base"
+                      >
+                        <component v-if="getStatusIcon(option)" :is="getStatusIcon(option)" class="h-4 w-4" />
+                        <span>{{ option }}</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="flex-1 max-w-[65%]">
+                  <Input
+                    id="status_comment"
+                    v-model="newEntry.status_comment"
+                    placeholder="e.g., Waiting for approval, On track for Friday"
+                    class="h-12 px-4 text-base"
+                  />
+                  <Label for="status_comment" class="text-xs text-muted-foreground mt-1">Status notes (optional)</Label>
+                </div>
               </div>
             </div>
 
-            <div class="flex justify-end space-x-2">
-              <Button type="button" variant="outline" @click="showAddDialog = false">
+            <!-- Remarks Field -->
+            <div class="space-y-3">
+              <Label for="remarks" class="text-base font-semibold">Remarks (Optional)</Label>
+              <Textarea
+                id="remarks"
+                v-model="newEntry.remarks"
+                placeholder="Additional context, notes, or next steps"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
+              />
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                @click="showAddDialog = false"
+                class="h-12 px-6 text-base font-medium"
+              >
                 Cancel
               </Button>
-              <Button type="submit">
-                Add Entry
+              <Button
+                type="submit"
+                :disabled="!newEntry.ppa || !newEntry.kpi || !newEntry.status"
+                class="h-12 px-6 text-base font-medium bg-primary hover:bg-primary/90"
+              >
+                Add New Accomplishment
               </Button>
             </div>
           </form>
@@ -573,81 +641,104 @@ onMounted(async () => {
 
       <!-- Edit Entry Dialog -->
       <Dialog v-model:open="showEditDialog">
-        <DialogContent class="sm:max-w-[525px]">
+        <DialogContent class="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Edit Entry</DialogTitle>
+            <DialogTitle>Edit Accomplishment</DialogTitle>
           </DialogHeader>
-          <form @submit.prevent="updateEntry" class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <Label>Entry Date</Label>
-                <div class="px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
-                  {{ editingEntry ? formatDate(editingEntry.entry_date) : '' }}
-                </div>
-              </div>
-              <div class="space-y-2">
-                <Label for="edit_remarks">Remarks (Optional)</Label>
-                <Textarea
-                  id="edit_remarks"
-                  v-model="editEntry.remarks"
-                  placeholder="Additional notes or comments"
-                  class="min-h-[40px]"
-                />
+          <form @submit.prevent="updateEntry" class="space-y-6">
+            <!-- Date Field (Read-only) -->
+            <div class="space-y-3">
+              <Label class="text-base font-semibold">Entry Date</Label>
+              <div class="px-4 py-3 bg-muted rounded-md text-base text-muted-foreground h-12 flex items-center">
+                {{ editingEntry ? formatDate(editingEntry.entry_date) : '' }}
               </div>
             </div>
 
-            <div class="space-y-2">
-              <Label for="edit_ppa">PPA (Program/Project/Activity)</Label>
+            <!-- Project/Activity Field -->
+            <div class="space-y-3">
+              <Label for="edit_ppa" class="text-base font-semibold">Program/Project/Activity *</Label>
               <Textarea
                 id="edit_ppa"
                 v-model="editEntry.ppa"
-                placeholder="Describe the program, project, or activity"
+                placeholder="e.g., Website redesign, Client meeting, Training session"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
                 required
               />
             </div>
 
-            <div class="space-y-2">
-              <Label for="edit_kpi">KPI (Key Performance Indicator)</Label>
+            <!-- Key Results Field -->
+            <div class="space-y-3">
+              <Label for="edit_kpi" class="text-base font-semibold">Key Results *</Label>
               <Textarea
                 id="edit_kpi"
                 v-model="editEntry.kpi"
-                placeholder="Describe the key performance indicators"
+                placeholder="e.g., Completed 3 wireframes, Signed new contract worth $50k"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
                 required
               />
             </div>
 
-            <div class="space-y-2">
-              <Label for="edit_status">Status</Label>
-              <div class="grid grid-cols-3 gap-2">
-                <Select v-model="editEntry.status" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="option in statusOptions"
-                      :key="option"
-                      :value="option"
-                    >
-                      {{ option }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  id="edit_status_comment"
-                  v-model="editEntry.status_comment"
-                  placeholder="Comment (optional)"
-                  class="text-sm col-span-2"
-                />
+            <!-- Status Section -->
+            <div class="space-y-3">
+              <Label for="edit_status" class="text-base font-semibold">Status *</Label>
+              <div class="flex gap-3">
+                <div class="flex-1 max-w-[35%]">
+                  <Select v-model="editEntry.status" required>
+                    <SelectTrigger class="h-12 px-4 text-base">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="option in statusOptions"
+                        :key="option"
+                        :value="option"
+                        class="flex items-center gap-2 py-3 text-base"
+                      >
+                        <component v-if="getStatusIcon(option)" :is="getStatusIcon(option)" class="h-4 w-4" />
+                        <span>{{ option }}</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="flex-1 max-w-[65%]">
+                  <Input
+                    id="edit_status_comment"
+                    v-model="editEntry.status_comment"
+                    placeholder="e.g., Waiting for approval, On track for Friday"
+                    class="h-12 px-4 text-base"
+                  />
+                  <Label for="edit_status_comment" class="text-xs text-muted-foreground mt-1">Status notes (optional)</Label>
+                </div>
               </div>
             </div>
 
-            <div class="flex justify-end space-x-2">
-              <Button type="button" variant="outline" @click="showEditDialog = false">
+            <!-- Remarks Field -->
+            <div class="space-y-3">
+              <Label for="edit_remarks" class="text-base font-semibold">Remarks (Optional)</Label>
+              <Textarea
+                id="edit_remarks"
+                v-model="editEntry.remarks"
+                placeholder="Additional context, notes, or next steps"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
+              />
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                @click="showEditDialog = false"
+                class="h-12 px-6 text-base font-medium"
+              >
                 Cancel
               </Button>
-              <Button type="submit">
-                Update Entry
+              <Button
+                type="submit"
+                :disabled="!editEntry.ppa || !editEntry.kpi || !editEntry.status"
+                class="h-12 px-6 text-base font-medium bg-primary hover:bg-primary/90"
+              >
+                Update Accomplishment
               </Button>
             </div>
           </form>
@@ -701,52 +792,62 @@ onMounted(async () => {
       <!-- View Entry Dialog -->
       <Dialog v-model:open="showViewDialog">
         <DialogContent class="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle v-if="selectedEntry">
-              Daily Entry: {{ formatDate(selectedEntry.entry_date) }}
-            </DialogTitle>
-          </DialogHeader>
-          <div class="flex-1 overflow-auto">
-            <div v-if="selectedEntry" class="space-y-6">
-              <!-- Entry Details -->
-              <div class="grid grid-cols-2 gap-6">
-                <div class="space-y-2">
-                  <Label class="text-sm font-medium text-muted-foreground">Date</Label>
-                  <div class="p-3 bg-muted/50 rounded-md">
-                    {{ formatDate(selectedEntry.entry_date) }}
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <Label class="text-sm font-medium text-muted-foreground">Status</Label>
-                  <div class="p-3 bg-muted/50 rounded-md">
-                    <span :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium', getStatusColorClasses(selectedEntry.status))">
-                      {{ selectedEntry.status }}
-                    </span>
-                    <span v-if="selectedEntry.status_comment" class="ml-2 text-sm text-muted-foreground">
-                      - {{ selectedEntry.status_comment }}
-                    </span>
-                  </div>
+          <DialogHeader class="pb-6 border-b">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <FileText class="h-6 w-6 text-primary" />
+                <div>
+                  <DialogTitle v-if="selectedEntry" class="text-xl font-bold text-foreground">
+                    Entry Details
+                  </DialogTitle>
+                  <p v-if="selectedEntry" class="text-base text-muted-foreground mt-1 flex items-center gap-2">
+                    <CalendarIcon class="h-4 w-4" />
+                    {{ formattedSelectedEntryDate }}
+                  </p>
                 </div>
               </div>
+              <div v-if="selectedEntry" class="flex items-center">
+                <span :class="cn('inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold', getStatusColorClasses(selectedEntry.status))">
+                  <component v-if="getStatusIcon(selectedEntry.status)" :is="getStatusIcon(selectedEntry.status)" class="h-4 w-4" />
+                  {{ selectedEntry.status }}
+                  <span v-if="selectedEntry.status_comment" class="text-xs opacity-75">
+                    • {{ selectedEntry.status_comment }}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </DialogHeader>
+          <div class="flex-1 overflow-auto pt-6">
+            <div v-if="selectedEntry" class="space-y-8 px-1">
 
-              <div class="space-y-2">
-                <Label class="text-sm font-medium text-muted-foreground">PPA (Program/Project/Activity)</Label>
-                <div class="p-3 bg-muted/50 rounded-md whitespace-pre-wrap">
+              <!-- Project/Activity Section -->
+              <div class="space-y-4 pb-6 border-b border-border/50">
+                <Label class="text-base font-semibold text-foreground">
+                  PPA(Program/Project/Activity)
+                </Label>
+                <div class="p-4 bg-card border rounded-lg whitespace-pre-wrap text-base leading-relaxed shadow-sm">
                   {{ selectedEntry.ppa }}
                 </div>
               </div>
 
-              <div class="space-y-2">
-                <Label class="text-sm font-medium text-muted-foreground">KPI (Key Performance Indicator)</Label>
-                <div class="p-3 bg-muted/50 rounded-md whitespace-pre-wrap">
+              <!-- Key Results Section -->
+              <div class="space-y-4 pb-6 border-b border-border/50">
+                <Label class="text-base font-semibold text-foreground">
+                  KPI(Key Performance Indicator)
+                </Label>
+                <div class="p-4 bg-card border rounded-lg whitespace-pre-wrap text-base leading-relaxed shadow-sm">
                   {{ selectedEntry.kpi }}
                 </div>
               </div>
 
-              <div v-if="selectedEntry.remarks" class="space-y-2">
-                <Label class="text-sm font-medium text-muted-foreground">Remarks</Label>
-                <div class="p-3 bg-muted/50 rounded-md whitespace-pre-wrap">
-                  {{ selectedEntry.remarks }}
+              <!-- Remarks Section -->
+              <div class="space-y-4 pb-4">
+                <Label class="text-base font-semibold text-foreground">
+                  Remarks
+                </Label>
+                <div class="p-4 bg-card border rounded-lg whitespace-pre-wrap text-base leading-relaxed shadow-sm">
+                  <span v-if="selectedEntry.remarks">{{ selectedEntry.remarks }}</span>
+                  <span v-else class="text-muted-foreground italic">No remarks provided</span>
                 </div>
               </div>
             </div>
@@ -767,19 +868,20 @@ onMounted(async () => {
         />
       </div>
 
-      <Popover>
-        <PopoverTrigger as-child>
-          <Button
-            variant="outline"
-            :class="cn(
-              'w-[280px] justify-start text-left font-normal',
-              !selectedDateRange && 'text-muted-foreground',
-            )"
-          >
-            <CalendarIcon class="mr-2 h-4 w-4" />
-            {{ dateRangeText }}
-          </Button>
-        </PopoverTrigger>
+      <div class="flex items-center space-x-2">
+        <Popover>
+          <PopoverTrigger as-child>
+            <Button
+              variant="outline"
+              :class="cn(
+                'min-w-[280px] justify-start text-left font-normal',
+                !selectedDateRange && 'text-muted-foreground',
+              )"
+            >
+              <CalendarIcon class="mr-2 h-4 w-4" />
+              {{ dateRangeText }}
+            </Button>
+          </PopoverTrigger>
         <PopoverContent class="w-auto p-0">
           <div class="p-4 border-b bg-gradient-to-r from-green-50 to-emerald-50 space-y-4">
             <div class="flex items-center justify-between">
@@ -832,17 +934,25 @@ onMounted(async () => {
             💡 Click any day to select weekdays only (Monday-Friday)
           </div>
         </PopoverContent>
-      </Popover>
+        </Popover>
+      </div>
 
 
 
-      <Button
-        @click="saveToWeeklyReport"
-        :disabled="filteredEntries.length === 0"
-        class="bg-green-600 hover:bg-green-700"
-      >
-        Save & Generate Weekly Report PDF
-      </Button>
+      <div class="flex items-center space-x-4">
+        <div class="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-md">
+          <span class="font-medium">{{ filteredEntries.length }}</span> entries{{ filteredEntries.length !== 1 ? 's' : '' }} this week
+        </div>
+
+        <Button
+          @click="saveToWeeklyReport"
+          :disabled="filteredEntries.length === 0 || savingToWeeklyReport"
+          class="bg-green-600 hover:bg-green-700"
+        >
+          <Loader2 v-if="savingToWeeklyReport" class="h-4 w-4 mr-2 animate-spin" />
+          {{ savingToWeeklyReport ? 'Processing...' : 'Save & Generate Weekly Report PDF' }}
+        </Button>
+      </div>
     </div>
 
     <!-- Main Content Grid -->
@@ -851,15 +961,15 @@ onMounted(async () => {
       <Card>
         <CardContent class="p-0">
           <div class="overflow-x-auto">
-            <Table class="w-full">
+            <Table class="w-full min-w-[800px]">
             <TableHeader>
-              <TableRow>
-                <TableHead class="w-24">Date</TableHead>
-                <TableHead class="w-1/3">PPA</TableHead>
-                <TableHead class="w-1/3">KPI</TableHead>
-                <TableHead class="w-20">Status</TableHead>
-                <TableHead class="w-1/6">Remarks</TableHead>
-                <TableHead class="w-16">Actions</TableHead>
+              <TableRow class="h-12 border-b-2 border-border">
+                <TableHead class="w-24 text-base font-semibold text-left">Date</TableHead>
+                <TableHead class="w-1/3 text-base font-semibold text-left">PPA(Program/Project/Activity)</TableHead>
+                <TableHead class="w-1/3 text-base font-semibold text-left">KPI(Key Performance Indicator)</TableHead>
+                <TableHead class="w-20 text-base font-semibold text-left">Status</TableHead>
+                <TableHead class="w-1/6 text-base font-semibold text-left">Remarks</TableHead>
+                <TableHead class="w-20 text-base font-semibold text-left">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -889,21 +999,28 @@ onMounted(async () => {
                 </TableRow>
               </template>
               <TableRow v-else-if="filteredEntries.length === 0">
-                <TableCell colspan="6" class="text-center py-8 text-muted-foreground">
-                  No entries found
+                <TableCell colspan="6" class="text-center py-12 text-muted-foreground">
+                  <div class="flex flex-col items-center space-y-3">
+                    <div class="text-4xl">📝</div>
+                    <div class="text-base font-medium">No accomplishment entries found</div>
+                    <div class="text-sm text-muted-foreground/70">Create your first entry by clicking the "Add New Accomplishment" button above</div>
+                  </div>
                 </TableCell>
               </TableRow>
               <TableRow
                 v-else
-                v-for="entry in filteredEntries"
+                v-for="(entry, index) in filteredEntries"
                 :key="entry.id"
                 @click="viewEntry(entry)"
-                class="cursor-pointer hover:bg-muted/50"
+                :class="cn(
+                  'cursor-pointer hover:bg-muted/50 h-12 border-b border-border',
+                  index % 2 === 1 ? 'bg-muted/25' : 'bg-background'
+                )"
               >
-                <TableCell class="font-medium">
+                <TableCell class="font-medium text-base py-2 px-3">
                   {{ formatDate(entry.entry_date) }}
                 </TableCell>
-                <TableCell class="max-w-0 text-sm">
+                <TableCell class="max-w-0 text-base py-2 px-3">
                   <HoverCard :open-delay="100" :close-delay="100">
                     <HoverCardTrigger as-child>
                       <div class="truncate cursor-pointer" :title="entry.ppa">
@@ -912,7 +1029,7 @@ onMounted(async () => {
                     </HoverCardTrigger>
                     <HoverCardContent class="w-96" side="top">
                       <div class="space-y-2">
-                        <h4 class="text-sm font-semibold">PPA (Program/Project/Activity)</h4>
+                        <h4 class="text-sm font-semibold">Program/Project/Activity</h4>
                         <p class="text-sm text-muted-foreground">
                           {{ entry.ppa }}
                         </p>
@@ -920,7 +1037,7 @@ onMounted(async () => {
                     </HoverCardContent>
                   </HoverCard>
                 </TableCell>
-                <TableCell class="max-w-0 text-sm">
+                <TableCell class="max-w-0 text-base py-2 px-3">
                   <HoverCard :open-delay="100" :close-delay="100">
                     <HoverCardTrigger as-child>
                       <div class="truncate cursor-pointer" :title="entry.kpi">
@@ -929,7 +1046,7 @@ onMounted(async () => {
                     </HoverCardTrigger>
                     <HoverCardContent class="w-96" side="top">
                       <div class="space-y-2">
-                        <h4 class="text-sm font-semibold">KPI (Key Performance Indicator)</h4>
+                        <h4 class="text-sm font-semibold">KPI(Key Performance Indicator)</h4>
                         <p class="text-sm text-muted-foreground">
                           {{ entry.kpi }}
                         </p>
@@ -937,10 +1054,11 @@ onMounted(async () => {
                     </HoverCardContent>
                   </HoverCard>
                 </TableCell>
-                <TableCell>
+                <TableCell class="py-2 px-3">
                   <HoverCard v-if="entry.status_comment" :open-delay="100" :close-delay="100">
                     <HoverCardTrigger as-child>
-                      <span :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium cursor-pointer', getStatusColorClasses(entry.status))">
+                      <span :class="cn('inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium cursor-pointer', getStatusColorClasses(entry.status))">
+                        <component v-if="getStatusIcon(entry.status)" :is="getStatusIcon(entry.status)" class="h-3 w-3" />
                         {{ entry.status }}
                       </span>
                     </HoverCardTrigger>
@@ -953,11 +1071,12 @@ onMounted(async () => {
                       </div>
                     </HoverCardContent>
                   </HoverCard>
-                  <span v-else :class="cn('inline-flex items-center px-2 py-1 rounded-md text-xs font-medium', getStatusColorClasses(entry.status))">
+                  <span v-else :class="cn('inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium', getStatusColorClasses(entry.status))">
+                    <component v-if="getStatusIcon(entry.status)" :is="getStatusIcon(entry.status)" class="h-3 w-3" />
                     {{ entry.status }}
                   </span>
                 </TableCell>
-                <TableCell class="max-w-0 text-sm">
+                <TableCell class="max-w-0 text-base py-2 px-3">
                   <HoverCard v-if="entry.remarks" :open-delay="100" :close-delay="100">
                     <HoverCardTrigger as-child>
                       <div class="truncate cursor-pointer" :title="entry.remarks">
@@ -975,13 +1094,15 @@ onMounted(async () => {
                   </HoverCard>
                   <span v-else class="text-muted-foreground">-</span>
                 </TableCell>
-                <TableCell @click.stop>
-                  <div class="flex items-center space-x-1">
-                    <Button variant="ghost" size="sm" @click="openEditDialog(entry)">
-                      <Edit class="h-3 w-3" />
+                <TableCell @click.stop class="py-2 px-3">
+                  <div class="flex items-center space-x-2">
+                    <Button variant="ghost" size="sm" class="h-8 px-2 hover:bg-accent" @click="openEditDialog(entry)">
+                      <Edit class="h-4 w-4 mr-1" />
+                      <span class="text-xs">Edit</span>
                     </Button>
-                    <Button variant="ghost" size="sm" @click="deleteEntry(entry.id)">
-                      <Trash2 class="h-3 w-3" />
+                    <Button variant="ghost" size="sm" class="h-8 px-2 hover:bg-destructive/10 text-destructive hover:text-destructive" @click="deleteEntry(entry.id)">
+                      <Trash2 class="h-4 w-4 mr-1" />
+                      <span class="text-xs">Delete</span>
                     </Button>
                   </div>
                 </TableCell>
