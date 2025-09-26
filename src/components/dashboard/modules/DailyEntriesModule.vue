@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2, Check, Clock, AlertTriangle, ClipboardList, Loader2, FileText } from 'lucide-vue-next'
+import { Plus, Search, Calendar as CalendarIcon, Edit, Trash2, Loader2, FileText } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const authStore = useAuthStore()
@@ -410,33 +410,7 @@ const getStatusColorClasses = (status: string) => {
   return 'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
 }
 
-const getStatusIcon = (status: string) => {
-  // Dynamic icon assignment based on status keywords
-  const lowerStatus = status.toLowerCase()
 
-  // Completed/Success states
-  if (lowerStatus.includes('completed') || lowerStatus.includes('accomplished') || lowerStatus.includes('done') || lowerStatus.includes('finished') || lowerStatus.includes('closed')) {
-    return Check
-  }
-
-  // In Progress/Active states
-  if (lowerStatus.includes('progress') || lowerStatus.includes('active') || lowerStatus.includes('working')) {
-    return Clock
-  }
-
-  // Warning/Risk/Problem states
-  if (lowerStatus.includes('risk') || lowerStatus.includes('delayed') || lowerStatus.includes('warning') || lowerStatus.includes('cancelled') || lowerStatus.includes('canceled') || lowerStatus.includes('hold')) {
-    return AlertTriangle
-  }
-
-  // Planning/Review/Testing states
-  if (lowerStatus.includes('testing') || lowerStatus.includes('review') || lowerStatus.includes('not started') || lowerStatus.includes('planning')) {
-    return ClipboardList
-  }
-
-  // Default: no icon for unrecognized statuses
-  return null
-}
 
 // Set default status dynamically based on available options
 const initializeNewEntry = () => {
@@ -693,7 +667,6 @@ watch(() => route.query, () => {
                         :value="option"
                         class="flex items-center gap-2 py-3 text-base"
                       >
-                        <component v-if="getStatusIcon(option)" :is="getStatusIcon(option)" class="h-4 w-4" />
                         <span>{{ option }}</span>
                       </SelectItem>
                     </SelectContent>
@@ -799,7 +772,6 @@ watch(() => route.query, () => {
                         :value="option"
                         class="flex items-center gap-2 py-3 text-base"
                       >
-                        <component v-if="getStatusIcon(option)" :is="getStatusIcon(option)" class="h-4 w-4" />
                         <span>{{ option }}</span>
                       </SelectItem>
                     </SelectContent>
@@ -913,7 +885,6 @@ watch(() => route.query, () => {
               </div>
               <div v-if="selectedEntry" class="flex items-center">
                 <span :class="cn('inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold', getStatusColorClasses(selectedEntry.status))">
-                  <component v-if="getStatusIcon(selectedEntry.status)" :is="getStatusIcon(selectedEntry.status)" class="h-4 w-4" />
                   {{ selectedEntry.status }}
                   <span v-if="selectedEntry.status_comment" class="text-xs opacity-75">
                     • {{ selectedEntry.status_comment }}
@@ -1060,7 +1031,7 @@ watch(() => route.query, () => {
         </Button>
 
         <div v-if="hasSubmittedEntries" class="text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1 rounded-md border border-blue-200 dark:border-blue-800">
-          📋 This report has already been submitted
+          📋 This week's report has already been submitted
         </div>
       </div>
     </div>
@@ -1169,7 +1140,6 @@ watch(() => route.query, () => {
                   <HoverCard v-if="entry.status_comment" :open-delay="100" :close-delay="100">
                     <HoverCardTrigger as-child>
                       <span :class="cn('inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium cursor-pointer', getStatusColorClasses(entry.status))">
-                        <component v-if="getStatusIcon(entry.status)" :is="getStatusIcon(entry.status)" class="h-3 w-3" />
                         {{ entry.status }}
                       </span>
                     </HoverCardTrigger>
@@ -1183,7 +1153,6 @@ watch(() => route.query, () => {
                     </HoverCardContent>
                   </HoverCard>
                   <span v-else :class="cn('inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium', getStatusColorClasses(entry.status))">
-                    <component v-if="getStatusIcon(entry.status)" :is="getStatusIcon(entry.status)" class="h-3 w-3" />
                     {{ entry.status }}
                   </span>
                 </TableCell>
