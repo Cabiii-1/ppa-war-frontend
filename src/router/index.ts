@@ -6,7 +6,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard'
+      redirect: '/weekly-reports'
     },
     {
       path: '/login',
@@ -17,33 +17,20 @@ const router = createRouter({
       }
     },
     {
-      path: '/dashboard',
-      name: 'Dashboard',
+      path: '/weekly-reports',
+      name: 'WeeklyReports',
       component: () => import('@/views/DashboardView.vue'),
-      redirect: '/dashboard/daily-entries',
       meta: {
         requiresAuth: true
-      },
-      children: [
-        {
-          path: 'overview',
-          name: 'DashboardOverview',
-          component: () => import('@/components/dashboard/modules/OverviewModule.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'daily-entries',
-          name: 'DailyEntries',
-          component: () => import('@/components/dashboard/modules/DailyEntriesModule.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'weekly-reports',
-          name: 'WeeklyReports',
-          component: () => import('@/components/dashboard/modules/WeeklyReportsModule.vue'),
-          meta: { requiresAuth: true }
-        }
-      ]
+      }
+    },
+    {
+      path: '/daily-entries',
+      name: 'DailyEntries',
+      component: () => import('@/views/DashboardView.vue'),
+      meta: {
+        requiresAuth: true
+      }
     }
   ]
 })
@@ -70,7 +57,7 @@ router.beforeEach(async (to, _, next) => {
   // Check if route requires guest (not authenticated)
   if (to.meta.requiresGuest) {
     if (authStore.isAuthenticated) {
-      next('/dashboard/daily-entries')
+      next('/weekly-reports')
       return
     }
   }

@@ -46,15 +46,15 @@ const data = computed(() => ({
   navMain: [
     {
       title: "Daily Entries",
-      url: "/dashboard/daily-entries",
+      url: "/daily-entries",
       icon: FileText,
-      isActive: route.path === "/dashboard/daily-entries",
+      isActive: route.path === "/daily-entries",
     },
     {
       title: "Weekly Reports",
-      url: "/dashboard/weekly-reports",
+      url: "/weekly-reports",
       icon: Calendar,
-      isActive: route.path === "/dashboard/weekly-reports",
+      isActive: route.path === "/weekly-reports",
     },
   ],
 

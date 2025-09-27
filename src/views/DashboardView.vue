@@ -6,10 +6,8 @@ import AppSidebar from "@/components/dashboard/AppSidebar.vue"
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -18,6 +16,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import ThemeToggle from "@/components/ui/ThemeToggle.vue"
+import DailyEntriesModule from "@/components/dashboard/modules/DailyEntriesModule.vue"
+import WeeklyReportsModule from "@/components/dashboard/modules/WeeklyReportsModule.vue"
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -31,11 +31,21 @@ onMounted(() => {
 
 const currentPageName = computed(() => {
   const routeNameMap: Record<string, string> = {
-    'DashboardOverview': 'Overview',
     'DailyEntries': 'Daily Entries',
     'WeeklyReports': 'Weekly Reports'
   }
   return routeNameMap[route.name as string] || 'Dashboard'
+})
+
+const currentComponent = computed(() => {
+  switch (route.name) {
+    case 'DailyEntries':
+      return DailyEntriesModule
+    case 'WeeklyReports':
+      return WeeklyReportsModule
+    default:
+      return WeeklyReportsModule
+  }
 })
 </script>
 
@@ -52,12 +62,6 @@ const currentPageName = computed(() => {
           />
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem class="hidden md:block">
-                <BreadcrumbLink href="/dashboard">
-                  Dashboard
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator class="hidden md:block" />
               <BreadcrumbItem>
                 <BreadcrumbPage>{{ currentPageName }}</BreadcrumbPage>
               </BreadcrumbItem>
@@ -71,7 +75,7 @@ const currentPageName = computed(() => {
 
       <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
         <!-- Dynamic Content Area -->
-        <router-view />
+        <component :is="currentComponent" />
       </div>
     </SidebarInset>
   </SidebarProvider>

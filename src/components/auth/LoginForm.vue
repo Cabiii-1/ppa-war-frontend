@@ -38,7 +38,7 @@ const handleSubmit = async () => {
   if (success) {
     // Ensure user data is loaded before navigation
     await authStore.fetchUser()
-    router.push('/dashboard/daily-entries')
+    router.push('/daily-entries')
   }
 }
 </script>

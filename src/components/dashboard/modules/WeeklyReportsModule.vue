@@ -1,25 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { format, parseISO } from 'date-fns'
+import { DateFormatter, getLocalTimeZone, fromDate } from '@internationalized/date'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { weeklyReportsService } from '@/services/weeklyReports'
+import { entriesService } from '@/services/entries'
+import { enumsService } from '@/services/enums'
 import type { WeeklyReport } from '@/services/weeklyReports'
+import type { CreateEntryData } from '@/types/entry'
 import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Search, CheckCircle, FileText, FileDown, Check, Clock, AlertCircle } from 'lucide-vue-next'
+import { Search, CheckCircle, FileText, FileDown, Check, Clock, AlertCircle, Plus, Calendar as CalendarIcon } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PdfService } from '@/services/pdfService'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+// Date formatter
+const df = new DateFormatter('en-US', {
+  dateStyle: 'medium',
+})
 
 // State
 const reports = ref<WeeklyReport[]>([])
@@ -28,6 +43,24 @@ const searchQuery = ref('')
 const showSubmitConfirmDialog = ref(false)
 const pdfLoading = ref(false)
 const pendingSubmitId = ref<number | null>(null)
+
+// Add Entry State
+const statusOptions = ref<string[]>([])
+const loadingStatusOptions = ref(false)
+const showAddDialog = ref(false)
+const addEntryError = ref('')
+const selectedEntryDate = ref(fromDate(new Date(), getLocalTimeZone()))
+
+// Form state
+const newEntry = reactive<CreateEntryData>({
+  employee_id: '',
+  entry_date: format(new Date(), 'yyyy-MM-dd'),
+  ppa: '',
+  kpi: '',
+  status: '',
+  status_comment: '',
+  remarks: ''
+})
 
 // Computed
 const filteredReports = computed(() => {
@@ -77,6 +110,70 @@ const navigateToDailyEntries = (report: WeeklyReport) => {
       end_date: report.period_end
     }
   })
+}
+
+// Entry management methods
+const loadStatusOptions = async () => {
+  loadingStatusOptions.value = true
+  try {
+    const response = await enumsService.getStatusOptions()
+    if (response.success) {
+      statusOptions.value = response.data
+    }
+  } catch (error) {
+    console.error('Failed to load status options:', error)
+    statusOptions.value = []
+  } finally {
+    loadingStatusOptions.value = false
+  }
+}
+
+const addEntry = async () => {
+  // Clear any previous errors
+  addEntryError.value = ''
+
+  try {
+    // Set employee_id to current user
+    newEntry.employee_id = authStore.user?.employee_id || authStore.user?.id?.toString() || ''
+
+    // Convert calendar date to string format for API
+    newEntry.entry_date = format(selectedEntryDate.value!.toDate(), 'yyyy-MM-dd')
+
+    const response = await entriesService.createEntry(newEntry)
+    if (response.success) {
+      showAddDialog.value = false
+      resetForm()
+      await loadReports() // Refresh the reports list
+    } else {
+      addEntryError.value = response.message || 'Failed to create entry'
+    }
+  } catch (error: any) {
+    console.error('Failed to create entry:', error)
+    if (error.response?.status === 403) {
+      addEntryError.value = error.response.data.message || 'Cannot add entries to submitted weekly reports'
+    } else {
+      addEntryError.value = 'Failed to create entry. Please try again.'
+    }
+  }
+}
+
+const resetForm = () => {
+  selectedEntryDate.value = fromDate(new Date(), getLocalTimeZone())
+  addEntryError.value = ''
+  Object.assign(newEntry, {
+    employee_id: '',
+    entry_date: format(new Date(), 'yyyy-MM-dd'),
+    ppa: '',
+    kpi: '',
+    status: statusOptions.value.length > 0 ? statusOptions.value[0] : '',
+    status_comment: '',
+    remarks: ''
+  })
+}
+
+// Set default status dynamically based on available options
+const initializeNewEntry = () => {
+  newEntry.status = statusOptions.value.length > 0 ? statusOptions.value[0] : ''
 }
 
 
@@ -153,7 +250,9 @@ const previewPdf = async (report: WeeklyReport) => {
 
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  await loadStatusOptions()
+  initializeNewEntry()
   loadReports()
 })
 </script>
@@ -166,6 +265,156 @@ onMounted(() => {
         <h1 class="text-lg font-semibold mb-1">Weekly Accomplishment Reports</h1>
         <p class="text-base leading-relaxed text-muted-foreground">View and manage your weekly accomplishment reports</p>
       </div>
+
+      <Dialog v-model:open="showAddDialog">
+        <DialogTrigger as-child>
+          <Button
+            class="px-6 py-3 text-base font-medium"
+            title="Add New Accomplishment"
+          >
+            <Plus class="h-4 w-4 mr-2" />
+            Add New Accomplishment
+          </Button>
+        </DialogTrigger>
+        <DialogContent class="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add New Accomplishment</DialogTitle>
+          </DialogHeader>
+
+          <!-- Error Message Display -->
+          <div v-if="addEntryError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800 dark:text-red-400">
+                  Unable to add entry
+                </h3>
+                <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                  {{ addEntryError }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form @submit.prevent="addEntry" class="space-y-6">
+            <!-- Date Field -->
+            <div class="space-y-3">
+              <Label for="entry_date" class="text-base font-semibold">Date *</Label>
+              <Popover>
+                <PopoverTrigger as-child>
+                  <Button
+                    variant="outline"
+                    :class="cn(
+                      'w-full justify-start text-left font-normal h-12 px-4 text-base',
+                      !selectedEntryDate && 'text-muted-foreground'
+                    )"
+                  >
+                    <CalendarIcon class="mr-3 h-5 w-5" />
+                    {{ selectedEntryDate ? df.format(selectedEntryDate.toDate()) : 'Select date' }}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0">
+                  <Calendar
+                    v-model="selectedEntryDate as any"
+                    initial-focus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <!-- Project/Activity Field -->
+            <div class="space-y-3">
+              <Label for="ppa" class="text-base font-semibold">Program/Project/Activity *</Label>
+              <Textarea
+                id="ppa"
+                v-model="newEntry.ppa"
+                placeholder="e.g., Client meeting, Training session"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
+                required
+              />
+            </div>
+
+            <!-- Key Results Field -->
+            <div class="space-y-3">
+              <Label for="kpi" class="text-base font-semibold">KPI(Key Performance Indicator)*</Label>
+              <Textarea
+                id="kpi"
+                v-model="newEntry.kpi"
+                placeholder="e.g., Completed 3 projects, Signed new contract worth etc.."
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
+                required
+              />
+            </div>
+
+            <!-- Status Section -->
+            <div class="space-y-3">
+              <Label for="status" class="text-base font-semibold">Status *</Label>
+              <div class="flex gap-3">
+                <div class="flex-1 max-w-[35%]">
+                  <Select v-model="newEntry.status" required>
+                    <SelectTrigger class="h-12 px-4 text-base">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="option in statusOptions"
+                        :key="option"
+                        :value="option"
+                        class="flex items-center gap-2 py-3 text-base"
+                      >
+                        <span>{{ option }}</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="flex-1 max-w-[65%]">
+                  <Input
+                    id="status_comment"
+                    v-model="newEntry.status_comment"
+                    placeholder="e.g., Waiting for approval, On track for Friday"
+                    class="h-12 px-4 text-base"
+                  />
+                  <Label for="status_comment" class="text-xs text-muted-foreground mt-1">Status notes (optional)</Label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Remarks Field -->
+            <div class="space-y-3">
+              <Label for="remarks" class="text-base font-semibold">Remarks (Optional)</Label>
+              <Textarea
+                id="remarks"
+                v-model="newEntry.remarks"
+                placeholder="Additional context, notes, or next steps"
+                class="min-h-[80px] px-4 py-3 text-base resize-none"
+              />
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                @click="showAddDialog = false; addEntryError = ''"
+                class="h-12 px-6 text-base font-medium"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                :disabled="!newEntry.ppa || !newEntry.kpi || !newEntry.status"
+                class="h-12 px-6 text-base font-medium bg-primary hover:bg-primary/90"
+              >
+                Add New Accomplishment
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
 
     <!-- Search -->
