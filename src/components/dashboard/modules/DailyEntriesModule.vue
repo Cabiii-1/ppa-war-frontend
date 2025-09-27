@@ -5,7 +5,6 @@ import { CalendarDate, DateFormatter, getLocalTimeZone, fromDate } from '@intern
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { entriesService } from '@/services/entries'
-import { weeklyReportsService } from '@/services/weeklyReports'
 import { enumsService } from '@/services/enums'
 import { PdfService } from '@/services/pdfService'
 import type { Entry, CreateEntryData, EntryFilters, PaginatedEntries } from '@/types/entry'
@@ -52,7 +51,7 @@ const selectedEntryDate = ref(fromDate(new Date(), getLocalTimeZone()))
 const editingEntry = ref<Entry | null>(null)
 const pendingUpdateData = ref<any>(null)
 const pendingDeleteId = ref<number | null>(null)
-const savingToWeeklyReport = ref(false)
+const pdfLoading = ref(false)
 const selectedDateRange = ref({
   start: new CalendarDate(2025, 9, 1),
   end: new CalendarDate(2025, 9, 17)
@@ -157,6 +156,17 @@ const isEntryFromSubmittedReport = (entry: Entry) => {
 // Check if any entries in current view are from submitted reports
 const hasSubmittedEntries = computed(() => {
   return filteredEntries.value.some(entry => isEntryFromSubmittedReport(entry))
+})
+
+// Check if entries have an associated weekly report for PDF preview
+const hasWeeklyReport = computed(() => {
+  return filteredEntries.value.length > 0 && filteredEntries.value.some(entry => entry.weekly_report_id)
+})
+
+// Get the weekly report ID from the first entry that has one
+const getWeeklyReportId = computed(() => {
+  const entryWithReport = filteredEntries.value.find(entry => entry.weekly_report_id)
+  return entryWithReport?.weekly_report_id || null
 })
 
 
@@ -469,103 +479,25 @@ const selectNextWeekdays = () => {
 }
 
 
-const saveToWeeklyReport = async () => {
-  if (filteredEntries.value.length === 0) {
-    alert('No entries found in the current date range to save to weekly report.')
+const previewPdf = async () => {
+  if (!hasWeeklyReport.value || !getWeeklyReportId.value) {
+    alert('No weekly report found for the current entries. Please create a weekly report first from the Weekly Reports page.')
     return
   }
 
-  // Check if any entries are from submitted reports
-  const submittedEntries = filteredEntries.value.filter(entry => isEntryFromSubmittedReport(entry))
-  if (submittedEntries.length > 0) {
-    alert('Cannot modify weekly reports. Some entries in the current selection are already part of submitted weekly reports.')
-    return
-  }
-
-  if (savingToWeeklyReport.value) {
+  if (pdfLoading.value) {
     return // Prevent multiple clicks
   }
 
-  savingToWeeklyReport.value = true
+  pdfLoading.value = true
   try {
-    await confirmSaveToWeeklyReport()
-  } finally {
-    savingToWeeklyReport.value = false
-  }
-}
-
-const confirmSaveToWeeklyReport = async () => {
-  try {
-    const entryIds = filteredEntries.value.map(entry => entry.id)
-    const startDate = selectedDateRange.value?.start?.toDate(getLocalTimeZone())
-    const endDate = selectedDateRange.value?.end?.toDate(getLocalTimeZone())
-
-    if (!startDate || !endDate) {
-      alert('Please select a valid date range.')
-      return
-    }
-
-    // Check if any entries are already assigned to a weekly report
-    const assignedEntries = filteredEntries.value.filter(entry => entry.weekly_report_id)
-
-    if (assignedEntries.length > 0) {
-      // If entries are already assigned, update the existing weekly report
-      const existingReportId = assignedEntries[0].weekly_report_id
-
-      try {
-        // Update the existing weekly report with all entries from the current date range
-        const response = await weeklyReportsService.updateWeeklyReport(existingReportId!, {
-          entry_ids: entryIds
-        })
-
-        if (response.success) {
-          // Preview PDF after successful update
-          try {
-            const blob = await PdfService.previewWeeklyReportPdf(existingReportId!)
-            PdfService.previewBlobInNewTab(blob)
-          } catch (pdfError) {
-            console.error('Failed to preview updated PDF:', pdfError)
-            alert('Weekly report updated, but failed to preview PDF. You can access it from the Weekly Reports page.')
-          }
-
-          await loadEntries() // Reload to show updated entries
-        } else {
-          alert('Failed to update weekly report. Please try again.')
-        }
-      } catch (updateError) {
-        console.error('Failed to update existing weekly report:', updateError)
-        alert('Failed to update the existing weekly report. Please try again.')
-      }
-      return
-    }
-
-    // If no entries are assigned, create a new weekly report
-    const response = await weeklyReportsService.createWeeklyReport({
-      entry_ids: entryIds,
-      period_start: format(startDate, 'yyyy-MM-dd'),
-      period_end: format(endDate, 'yyyy-MM-dd')
-    })
-
-    if (response.success) {
-      // Preview PDF after successful creation using PdfService
-      const weeklyReportId = response.data.id
-      if (weeklyReportId) {
-        try {
-          const blob = await PdfService.previewWeeklyReportPdf(weeklyReportId)
-          PdfService.previewBlobInNewTab(blob)
-        } catch (pdfError) {
-          console.error('Failed to preview PDF:', pdfError)
-          alert('Weekly report created, but failed to preview PDF. You can access it from the Weekly Reports page.')
-        }
-      }
-
-      await loadEntries() // Reload to show updated entries with weekly_report_id
-    } else {
-      alert('Failed to create weekly report. Please try again.')
-    }
+    const blob = await PdfService.previewWeeklyReportPdf(getWeeklyReportId.value)
+    PdfService.previewBlobInNewTab(blob)
   } catch (error) {
-    console.error('Failed to save to weekly report:', error)
-    alert('An error occurred while creating the weekly report. Please try again.')
+    console.error('PDF preview error:', error)
+    alert('Failed to preview PDF. Please try again.')
+  } finally {
+    pdfLoading.value = false
   }
 }
 
@@ -1045,21 +977,25 @@ watch(() => route.query, () => {
 
       <div class="flex items-center space-x-4">
         <Button
-          @click="saveToWeeklyReport"
-          :disabled="filteredEntries.length === 0 || savingToWeeklyReport || hasSubmittedEntries"
-          :class="hasSubmittedEntries
-            ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
-            : 'bg-green-600 hover:bg-green-700'"
-          :title="hasSubmittedEntries
-            ? 'Cannot modify weekly reports containing entries from submitted reports'
-            : 'Save entries to weekly report'"
+          @click="previewPdf"
+          :disabled="!hasWeeklyReport || pdfLoading"
+          variant="outline"
+          class="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/10"
+          :title="hasWeeklyReport
+            ? 'Preview PDF of the weekly report'
+            : 'No weekly report found for current entries'"
         >
-          <Loader2 v-if="savingToWeeklyReport" class="h-4 w-4 mr-2 animate-spin" />
-          {{ savingToWeeklyReport ? 'Processing...' : 'Save & Generate Weekly Report PDF' }}
+          <Loader2 v-if="pdfLoading" class="h-4 w-4 mr-2 animate-spin" />
+          <FileText v-else class="h-4 w-4 mr-2" />
+          {{ pdfLoading ? 'Loading...' : 'Print' }}
         </Button>
 
-        <div v-if="hasSubmittedEntries" class="text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1 rounded-md border border-blue-200 dark:border-blue-800">
-          📋 This date range contains submitted reports - no modifications allowed
+        <div v-if="hasSubmittedEntries" class="text-sm text-slate-600 bg-slate-50 dark:bg-slate-800/50 dark:text-slate-300 px-3 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+          📋 Weekly report already submitted - This date range contains submitted reports
+        </div>
+
+        <div v-if="!hasWeeklyReport && filteredEntries.length > 0" class="text-sm text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 px-3 py-1 rounded-md border border-green-200 dark:border-green-800">
+          📄 Create a weekly report to enable PDF preview
         </div>
       </div>
     </div>
