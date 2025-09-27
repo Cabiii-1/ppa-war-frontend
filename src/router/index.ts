@@ -2,11 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/weekly-reports/'),
   routes: [
     {
       path: '/',
-      redirect: '/weekly-reports'
+      redirect: '/daily-entries'
     },
     {
       path: '/login',
