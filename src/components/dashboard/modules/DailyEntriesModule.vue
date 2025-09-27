@@ -46,6 +46,7 @@ const showEditDialog = ref(false)
 const showConfirmDialog = ref(false)
 const showDeleteConfirmDialog = ref(false)
 const showViewDialog = ref(false)
+const addEntryError = ref('')
 const selectedEntry = ref<Entry | null>(null)
 const selectedEntryDate = ref(fromDate(new Date(), getLocalTimeZone()))
 const editingEntry = ref<Entry | null>(null)
@@ -255,6 +256,9 @@ const loadEntries = async () => {
 }
 
 const addEntry = async () => {
+  // Clear any previous errors
+  addEntryError.value = ''
+
   try {
     // Set employee_id to current user
     newEntry.employee_id = authStore.user?.employee_id || authStore.user?.id?.toString() || ''
@@ -267,9 +271,18 @@ const addEntry = async () => {
       showAddDialog.value = false
       resetForm()
       await loadEntries()
+    } else {
+      // Handle API error response
+      addEntryError.value = response.message || 'Failed to create entry'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create entry:', error)
+    // Handle 403 errors specifically for submitted reports
+    if (error.response?.status === 403) {
+      addEntryError.value = error.response.data.message || 'Cannot add entries to submitted weekly reports'
+    } else {
+      addEntryError.value = 'Failed to create entry. Please try again.'
+    }
   }
 }
 
@@ -347,6 +360,7 @@ const resetEditForm = () => {
 
 const resetForm = () => {
   selectedEntryDate.value = fromDate(new Date(), getLocalTimeZone())
+  addEntryError.value = ''
   Object.assign(newEntry, {
     employee_id: '',
     entry_date: format(new Date(), 'yyyy-MM-dd'),
@@ -585,13 +599,7 @@ watch(() => route.query, () => {
         <DialogTrigger as-child>
           <Button
             class="px-6 py-3 text-base font-medium"
-            :class="hasSubmittedEntries
-              ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
-              : ''"
-            :disabled="hasSubmittedEntries"
-            :title="hasSubmittedEntries
-              ? 'Cannot add entries when viewing date range with submitted reports'
-              : 'Add New Accomplishment'"
+            title="Add New Accomplishment"
           >
             <Plus class="h-4 w-4 mr-2" />
             Add New Accomplishment
@@ -601,6 +609,26 @@ watch(() => route.query, () => {
           <DialogHeader>
             <DialogTitle>Add New Accomplishment</DialogTitle>
           </DialogHeader>
+
+          <!-- Error Message Display -->
+          <div v-if="addEntryError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800 dark:text-red-400">
+                  Unable to add entry
+                </h3>
+                <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                  {{ addEntryError }}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <form @submit.prevent="addEntry" class="space-y-6">
             <!-- Date Field -->
             <div class="space-y-3">
@@ -700,7 +728,7 @@ watch(() => route.query, () => {
               <Button
                 type="button"
                 variant="outline"
-                @click="showAddDialog = false"
+                @click="showAddDialog = false; addEntryError = ''"
                 class="h-12 px-6 text-base font-medium"
               >
                 Cancel
@@ -1031,7 +1059,7 @@ watch(() => route.query, () => {
         </Button>
 
         <div v-if="hasSubmittedEntries" class="text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1 rounded-md border border-blue-200 dark:border-blue-800">
-          📋 This week's report has already been submitted
+          📋 This date range contains submitted reports - no modifications allowed
         </div>
       </div>
     </div>
